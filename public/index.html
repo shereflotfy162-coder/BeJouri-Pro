@@ -53,42 +53,48 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // ✅ بيانات Supabase الخاصة بك
+        // ✅ بيانات Supabase
         const SUPABASE_URL = "https://ozdnyepxfcjzldpkteau.supabase.co";
-        // تم تصحيح المفتاح هنا واستخدام مفتاح الخدمة لضمان العمل
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZG55ZXB4ZmNqemxkcGt0ZWF1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDEwNTM3MiwiZXhwIjoyMDc5NjgxMzcyfQ.mtqFcdRZeidpC0Ul8r_8FJOJalToT4lZeHNqd3-fsOg";
-        
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        const GEMINI_API_KEY = "AIzaSyCG7aXcmYLDnVrQCo_hvgMbzYxklG4yJ-Y"; 
+        const GEMINI_API_KEY = ""; 
 
         const TRANSLATIONS = {
             ar: {
                 appTitle: "Beجوري", subTitle: "أبطال الكنيسة", loading: "جاري التحميل...",
                 free: "مجاني 🎁", locked: "اضغط للفتح", open: "مفتوح ✅",
-                loginTitle: "بوابة الأبطال", scanBtn: "📷 مسح بالكاميرا", manualBtn: "اكتب الكود", activateBtn: "تفعيل 🚀",
-                errUsed: "الكود مستخدم من قبل! 🚫", errWrong: "كود لعدد آخر! ⚠️", errInvalid: "كود خاطئ! ❌",
-                chatWelcome: "سلام ونعمة يا بطل! ❤️ أنا عمو فهيم، خادم في كنيسة مارمينا والبابا كيرلس. مستعد أجاوبك على أي سؤال!", chatPlaceholder: "اكتب سؤالك هنا...",
+                loginTitle: "بوابة الأبطال", scanBtn: "📷 مسح بالكاميرا", manualBtn: "اكتب مفتاح العدد", activateBtn: "فتح العدد 🚀",
+                errUsed: "المفتاح مستخدم من قبل! 🚫", errWrong: "مفتاح لعدد آخر! ⚠️", errInvalid: "مفتاح خاطئ! ❌",
                 verseTitle: "رسالة من السماء 🕊️", langBtn: "English",
-                introTitle: "أهلاً بيك يا بطل! 👋", introBody: "مرحباً بك في تطبيق Beجوري.", introBtn: "ابدأ الرحلة 🚀",
-                quizTab: "🏆 مسابقة", quizSetup: "إعداد المسابقة", qCount: "عدد الأسئلة:", qDiff: "الصعوبة:", 
-                diffEasy: "سهل 🤓", diffMedium: "متوسط 😎", diffHard: "صعب 🤯", startQuiz: "ابدأ التحدي 🔥",
+                introTitle: "أهلاً بيك يا جوري! 👋", introBody: "مرحباً بك في تطبيق Beجوري.", introBtn: "ابدأ الرحلة 🚀",
                 score: "النتيجة", playAgain: "العب تاني 🔄",
                 qSource: "مصدر الأسئلة:", qSrcInside: "من قلب المجلة 📖", qSrcOutside: "معلومات عامة 🌍",
-                qType: "نوع الأسئلة:", qTypeRel: "ديني ✝️", qTypeSci: "علمي 🔬"
+                qType: "نوع الأسئلة:", qTypeRel: "ديني ✝️", qTypeSci: "علمي 🔬",
+                storyTab: "✨ قصص", storySetup: "مكتبة الحكايات", storyPrompt: "عن ماذا تريد القصة؟", storyGen: "احكي لي 📖", storyVirtue: "فضيلة", storySaint: "قديس",
+                reflectBtn: "✨ تأمل", reflectTitle: "تأمل في الآية",
+                activitiesTab: "✨ أنشطة", actRiddle: "🧠 فوازير", actPrayer: "🙏 صلاتي",
+                riddleGen: "فزورة جديدة 🎲", riddlePlaceholder: "مين هو؟", riddleCheck: "تخمين ✅", riddleCorrect: "إجابة صحيحة! 🎉", riddleWrong: "حاول تاني ❌",
+                prayerTitle: "اكتب طلبك", prayerGen: "اكتب لي صلاة ✨", prayerTopic: "مثال: الامتحانات، صديقي المريض...",
+                friendsBook: "الكتاب العجيب 📖",
+                regTitle: "تسجيل بيانات جوري 🌹", regName: "اسمك بالكامل (ثلاثي)", regPhone: "رقم تليفونك", regParent: "رقم بابا أو ماما", regGrade: "أنت في سنة كام؟", regBtn: "سجل وادخل يا جوري 🚀"
             },
             en: {
                 appTitle: "BeJouri", subTitle: "Church Heroes", loading: "Loading...",
                 free: "Free 🎁", locked: "Tap to Unlock", open: "Open ✅",
-                loginTitle: "Heroes Gate", scanBtn: "📷 Scan QR", manualBtn: "Enter Code", activateBtn: "Activate 🚀",
-                errUsed: "Code Used! 🚫", errWrong: "Wrong Issue! ⚠️", errInvalid: "Invalid Code! ❌",
-                chatWelcome: "Hello Hero! ❤️ I'm Uncle Fahim, from St. Mina & Pope Kyrillos Church.", chatPlaceholder: "Type your question...",
+                loginTitle: "Heroes Gate", scanBtn: "📷 Scan QR", manualBtn: "Enter Key", activateBtn: "Unlock Issue 🚀",
+                errUsed: "Key Used! 🚫", errWrong: "Wrong Issue! ⚠️", errInvalid: "Invalid Key! ❌",
                 verseTitle: "Message from Heaven 🕊️", langBtn: "العربية",
-                introTitle: "Welcome Hero! 👋", introBody: "Welcome to BeJouri app.", introBtn: "Start Journey 🚀",
-                quizTab: "🏆 Quiz", quizSetup: "Quiz Setup", qCount: "Questions:", qDiff: "Difficulty:",
-                diffEasy: "Easy 🤓", diffMedium: "Medium 😎", diffHard: "Hard 🤯", startQuiz: "Start Challenge 🔥",
+                introTitle: "Welcome Jouri! 👋", introBody: "Welcome to BeJouri app.", introBtn: "Start Journey 🚀",
                 score: "Score", playAgain: "Play Again 🔄",
                 qSource: "Source:", qSrcInside: "Inside Magazine 📖", qSrcOutside: "General Knowledge 🌍",
-                qType: "Type:", qTypeRel: "Religious ✝️", qTypeSci: "Scientific 🔬"
+                qType: "Type:", qTypeRel: "Religious ✝️", qTypeSci: "Scientific 🔬",
+                storyTab: "✨ Stories", storySetup: "Tales Library", storyPrompt: "What is the story about?", storyGen: "Tell me 📖", storyVirtue: "Virtue", storySaint: "Saint",
+                reflectBtn: "✨ Reflect", reflectTitle: "Verse Reflection",
+                activitiesTab: "✨ Activities", actRiddle: "🧠 Riddles", actPrayer: "🙏 Prayers",
+                riddleGen: "New Riddle 🎲", riddlePlaceholder: "Who is it?", riddleCheck: "Guess ✅", riddleCorrect: "Correct! 🎉", riddleWrong: "Try Again ❌",
+                prayerTitle: "Your Request", prayerGen: "Compose Prayer ✨", prayerTopic: "e.g., Exams, Sick friend...",
+                friendsBook: "Wonder Book 📖",
+                regTitle: "Jouri Registration 🌹", regName: "Full Name", regPhone: "Your Phone", regParent: "Parent Phone", regGrade: "Grade", regBtn: "Register & Enter 🚀"
             }
         };
 
@@ -104,16 +110,21 @@
             try {
                 const cleanCode = code.trim().toUpperCase();
                 if(cleanCode === "ADMIN123") return { success: true };
-
                 const { data, error } = await supabase.from('codes').select('*').eq('code', cleanCode).single();
-
                 if (error || !data) return { success: false, error: "INVALID" };
                 if (String(data.issue_id) !== String(issueId)) return { success: false, error: "WRONG_ISSUE" };
                 if (data.used) return { success: false, error: "USED" };
-
                 await supabase.from('codes').update({ used: true, used_at: new Date() }).eq('code', cleanCode);
                 return { success: true };
             } catch (e) { return { success: false, error: "NET_ERROR" }; }
+        }
+
+        async function callGemini(prompt) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`;
+            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+            if (!response.ok) throw new Error("API Error");
+            const data = await response.json();
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
         }
 
         function IntroModal({ onClose, data, t }) {
@@ -122,174 +133,135 @@
                     <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 max-w-sm text-center shadow-2xl border-4 border-indigo-500 relative overflow-hidden animate-pop-in">
                         <div className="text-6xl mb-6 animate-bounce">👋❤️</div>
                         <h2 className="text-2xl font-black text-indigo-800 dark:text-white mb-4">{data.title || t.introTitle}</h2>
-                        <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 leading-relaxed">
-                            {data.body || t.introBody}
-                        </p>
-                        <button onClick={onClose} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-xl font-black text-xl shadow-lg hover:scale-105 transition transform">
-                            {t.introBtn}
-                        </button>
+                        <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 leading-relaxed">{data.body || t.introBody}</p>
+                        <button onClick={onClose} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-xl font-black text-xl shadow-lg hover:scale-105 transition transform">{t.introBtn}</button>
+                    </div>
+                </div>
+            );
+        }
+
+        // ✅ مكون تسجيل بيانات الطفل (باسم جوري)
+        function RegistrationModal({ t, onRegister }) {
+            const [data, setData] = React.useState({ name: '', phone: '', parent: '', grade: 'الصف الأول الابتدائي' });
+            const [loading, setLoading] = React.useState(false);
+
+            const handleSubmit = async () => {
+                if (!data.name || !data.phone || !data.parent) return alert("من فضلك املأ كل البيانات يا جوري!");
+                setLoading(true);
+                try {
+                    const { data: child, error } = await supabase.from('children').insert([{ 
+                        full_name: data.name, phone: data.phone, parent_phone: data.parent, grade: data.grade, points: 10 
+                    }]).select().single();
+                    
+                    if (error) throw error;
+                    
+                    localStorage.setItem('bejouri_child_id', JSON.stringify(child));
+                    onRegister(child);
+                } catch (e) { alert("خطأ في التسجيل، حاول تاني!"); }
+                setLoading(false);
+            };
+
+            return (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-indigo-900/95 backdrop-blur-xl animate-fade-in">
+                    <div className="bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl relative animate-pop-in border-4 border-yellow-400">
+                        <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 text-6xl">🎓</div>
+                        <h2 className="text-2xl font-black text-center text-indigo-800 mb-6 mt-4">{t.regTitle}</h2>
+                        <div className="space-y-4">
+                            <div><label className="block text-xs font-bold text-gray-500 mb-1">{t.regName}</label><input value={data.name} onChange={e=>setData({...data, name: e.target.value})} className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 focus:border-indigo-500 outline-none"/></div>
+                            <div><label className="block text-xs font-bold text-gray-500 mb-1">{t.regPhone}</label><input type="tel" value={data.phone} onChange={e=>setData({...data, phone: e.target.value})} className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 focus:border-indigo-500 outline-none"/></div>
+                            <div><label className="block text-xs font-bold text-gray-500 mb-1">{t.regParent}</label><input type="tel" value={data.parent} onChange={e=>setData({...data, parent: e.target.value})} className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 focus:border-indigo-500 outline-none"/></div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 mb-1">{t.regGrade}</label>
+                                <select value={data.grade} onChange={e=>setData({...data, grade: e.target.value})} className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 focus:border-indigo-500 outline-none">
+                                    <option>الصف الأول الابتدائي</option><option>الصف الثاني الابتدائي</option><option>الصف الثالث الابتدائي</option>
+                                    <option>الصف الرابع الابتدائي</option><option>الصف الخامس الابتدائي</option><option>الصف السادس الابتدائي</option>
+                                </select>
+                            </div>
+                            <button onClick={handleSubmit} disabled={loading} className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-4 rounded-xl font-black text-xl shadow-lg hover:scale-105 transition transform mt-2">
+                                {loading ? "جاري التسجيل..." : t.regBtn}
+                            </button>
+                        </div>
                     </div>
                 </div>
             );
         }
         
-        function ChatBot({ t, issueContext }) {
-            const ANON_KEY = SUPABASE_KEY;
-            const [msgs, setMsgs] = React.useState([{ role: 'model', text: t.chatWelcome }]);
-            const [input, setInput] = React.useState("");
+        function StoryView({ t }) {
+            const [topic, setTopic] = React.useState("");
+            const [story, setStory] = React.useState("");
             const [loading, setLoading] = React.useState(false);
-            const endRef = React.useRef(null);
-
-            React.useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, loading]);
-
-            // منطق إرسال البيانات (نص فقط)
-            const sendPayload = async (text) => {
-                setLoading(true);
-                try {
-                    const functionUrl = `${SUPABASE_URL}/functions/v1/chat-with-ai`;
-                    const response = await fetch(functionUrl, { 
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${ANON_KEY}`, 
-                            'apikey': ANON_KEY 
-                        },
-                        body: JSON.stringify({ 
-                            prompt: text, 
-                            context: issueContext || "مجلة عامة"
-                        }),
-                    });
-
-                    if (!response.ok) {
-                        const errText = await response.text();
-                        console.error("تفاصيل خطأ الدالة (Edge Function):", errText);
-                        throw new Error(`Server Error: ${response.status} - ${errText}`);
-                    }
-
-                    const data = await response.json();
-                    setMsgs(p => [...p, { role: 'model', text: data.reply }]);
-                } catch (err) {
-                    console.error("ChatBot Error:", err);
-                    setMsgs(p => [...p, { role: 'model', text: "معلش يا بطل، حصلت مشكلة بسيطة في الاتصال. جرب تاني كمان شوية! ❤️" }]);
-                }
-                setLoading(false);
+            const generateStory = async () => {
+                if(!topic) return; setLoading(true);
+                try { const text = await callGemini(`Write a short story for Christian children in Egyptian Arabic about: "${topic}".`); setStory(text); } catch(e) { alert("خطأ"); } setLoading(false);
             };
-
-            const handleTextSend = (e) => {
-                e.preventDefault();
-                if(!input.trim()) return;
-                setMsgs(p => [...p, { role: 'user', text: input }]);
-                sendPayload(input);
-                setInput("");
-            };
-
             return (
-                <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                        {msgs.map((m, i) => (
-                            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[85%] p-3 text-sm shadow-md whitespace-pre-wrap ${m.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`}>
-                                    {m.text}
-                                </div>
-                            </div>
-                        ))}
-                        {loading && <div className="text-xs text-gray-400 p-2 animate-pulse">عمو فهيم بيكتب...</div>}
-                        <div ref={endRef}></div>
-                    </div>
-                    <div className="p-2 bg-white dark:bg-gray-800 border-t flex gap-2 items-center">
-                        <form onSubmit={handleTextSend} className="flex-1 flex gap-2">
-                            <input value={input} onChange={e => setInput(e.target.value)} placeholder={t.chatPlaceholder} className="flex-1 bg-gray-100 dark:bg-gray-700 dark:text-white rounded-full px-4 py-2" />
-                            <button type="submit" className="w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center transform rotate-180 hover:bg-indigo-700 transition">➤</button>
-                        </form>
-                    </div>
+                <div className="h-full flex flex-col p-6 bg-indigo-50 dark:bg-gray-900 overflow-y-auto">
+                     {!story ? (
+                        <div className="flex flex-col items-center justify-center h-full text-center">
+                            <div className="text-6xl mb-4">📚</div><h2 className="text-2xl font-bold mb-6 dark:text-white">{t.storySetup}</h2>
+                            <input value={topic} onChange={e=>setTopic(e.target.value)} placeholder={t.storyPrompt} className="w-full max-w-sm p-4 rounded-xl shadow-sm border-2 border-indigo-100 mb-4 text-center text-lg" />
+                            <button onClick={generateStory} disabled={loading} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold text-lg shadow-lg">{loading ? "..." : t.storyGen}</button>
+                        </div>
+                     ) : (
+                        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl relative"><button onClick={()=>setStory("")} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold">✕</button><div className="prose dark:prose-invert text-lg leading-loose text-gray-700 dark:text-gray-200 whitespace-pre-wrap font-medium">{story}</div></div>
+                     )}
                 </div>
             );
         }
 
-        function QuizView({ issue, t }) {
-            const [state, setState] = React.useState('setup');
-            const [qCount, setQCount] = React.useState(5);
-            const [difficulty, setDifficulty] = React.useState('Medium');
-            const [qSource, setQSource] = React.useState('inside'); 
-            const [qType, setQType] = React.useState('religious'); 
-            const [questions, setQuestions] = React.useState([]);
-            const [idx, setIdx] = React.useState(0);
-            const [score, setScore] = React.useState(0);
+        function ActivitiesView({ t }) {
+            const [mode, setMode] = React.useState('menu'); 
+            const [data, setData] = React.useState(null); 
+            const [input, setInput] = React.useState(""); 
+            const [feedback, setFeedback] = React.useState(""); 
+            const [loading, setLoading] = React.useState(false);
 
-            const startQuiz = async () => {
-                setState('loading');
-                const topic = issue.title.ar;
-                let prompt = "";
-                if (qSource === 'inside') {
-                    prompt = `Generate ${qCount} multiple choice questions in Arabic based strictly on the topic "${topic}" (religious/church context). Difficulty: ${difficulty}.`;
-                } else {
-                    prompt = `Generate ${qCount} multiple choice questions in Arabic about "${topic}" but focusing on ${qType === 'scientific' ? 'Scientific facts/General knowledge' : 'General Christian/Orthodox knowledge'}. Difficulty: ${difficulty}.`;
-                }
-                prompt += ` Format must be valid JSON: [{"q":"Question text","o":["Option A","Option B","Option C"],"a":0}]. Do not use markdown blocks.`;
-                
-                try {
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-                        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }] })
-                    });
-                    if(!res.ok) throw new Error("Failed");
-                    const data = await res.json();
-                    let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-                    text = text.replace(/```json|```/g, '').trim(); 
-                    const json = JSON.parse(text);
-                    if(json.length > 0) { setQuestions(json); setIdx(0); setScore(0); setState('play'); }
-                    else { alert("حدث خطأ في توليد الأسئلة."); setState('setup'); }
+            const generateRiddle = async () => {
+                setLoading(true); 
+                setFeedback(""); 
+                setInput("");
+                try { 
+                    const text = await callGemini(`Generate a riddle in Arabic about a Coptic Saint. Return JSON: { "riddle": "...", "answer": "..." }.`); 
+                    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                    const json = JSON.parse(cleanText); 
+                    setData(json); 
                 } catch(e) { 
-                    alert("خطأ في الاتصال، حاول مرة أخرى."); 
-                    setState('setup'); 
-                }
+                    console.error(e);
+                    alert("Error"); 
+                    setMode('menu'); 
+                } 
+                setLoading(false);
             };
 
-            const answer = (i) => {
-                if(i === questions[idx].a) setScore(s => s+1);
-                if(idx < questions.length - 1) setIdx(n => n+1); else setState('end');
+            const checkRiddle = async () => {
+                if(!input || !data) return; 
+                setLoading(true);
+                try { 
+                    const text = await callGemini(`Answer: "${data.answer}". Guess: "${input}". Same person? JSON: { "correct": true/false }.`); 
+                    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+                    const json = JSON.parse(cleanText); 
+                    setFeedback(json.correct ? "correct" : "wrong"); 
+                } catch(e) { 
+                    setFeedback("wrong"); 
+                } 
+                setLoading(false);
             };
 
-            if(state === 'setup') return (
-                <div className="h-full flex flex-col items-center justify-center p-6 bg-indigo-50 dark:bg-gray-900 text-center overflow-y-auto">
-                    <div className="text-6xl mb-2">🏆</div>
-                    <h2 className="text-2xl font-bold mb-4 dark:text-white">{t.quizSetup}</h2>
-                    <div className="w-full max-w-xs space-y-4 mb-6 text-right">
-                        <div><label className="block text-xs font-bold mb-1 dark:text-gray-300">{t.qCount} {qCount}</label><input type="range" min="3" max="10" value={qCount} onChange={e=>setQCount(e.target.value)} className="w-full accent-indigo-600" /></div>
-                        <div><label className="block text-xs font-bold mb-1 dark:text-gray-300">{t.qDiff}</label><div className="flex gap-1">{['Easy','Medium','Hard'].map(d => <button key={d} onClick={()=>setDifficulty(d)} className={`flex-1 py-2 rounded-lg text-xs font-bold border ${difficulty===d ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>{TRANSLATIONS.ar['diff'+d] || d}</button>)}</div></div>
-                        <div><label className="block text-xs font-bold mb-1 dark:text-gray-300">{t.qSource}</label><div className="flex gap-1">
-                            <button onClick={()=>setQSource('inside')} className={`flex-1 py-2 rounded-lg text-xs font-bold border ${qSource==='inside' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>{t.qSrcInside}</button>
-                            <button onClick={()=>setQSource('outside')} className={`flex-1 py-2 rounded-lg text-xs font-bold border ${qSource==='outside' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>{t.qSrcOutside}</button>
-                        </div></div>
-                        {qSource === 'outside' && (
-                           <div><label className="block text-xs font-bold mb-1 dark:text-gray-300">{t.qType}</label><div className="flex gap-1">
-                                <button onClick={()=>setQType('religious')} className={`flex-1 py-2 rounded-lg text-xs font-bold border ${qType==='religious' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600'}`}>{t.qTypeRel}</button>
-                                <button onClick={()=>setQType('scientific')} className={`flex-1 py-2 rounded-lg text-xs font-bold border ${qType==='scientific' ? 'bg-purple-600 text-white' : 'bg-white text-gray-600'}`}>{t.qTypeSci}</button>
-                            </div></div> 
-                        )}
-                    </div>
-                    <button onClick={startQuiz} className="w-full max-w-xs bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg hover:scale-105 transition">{t.startQuiz}</button>
-                </div>
-            );
-            
-            if(state === 'loading') return <div className="h-full flex flex-col items-center justify-center font-bold animate-pulse dark:text-white"><div className="text-4xl mb-2">🤔</div><div>عمو فهيم بيجهز الأسئلة...</div></div>;
-            
-            if(state === 'play') return (
-                <div className="h-full p-6 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
-                    <div className="w-full max-w-md">
-                        <div className="flex justify-between mb-4 font-bold text-indigo-900 dark:text-indigo-300"><span>سؤال {idx+1}/{questions.length}</span><span>النقاط: {score}</span></div>
-                        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg mb-6 min-h-[150px] flex items-center justify-center text-center"><h3 className="text-lg font-bold dark:text-white leading-relaxed">{questions[idx].q}</h3></div>
-                        <div className="space-y-3">{questions[idx].o.map((opt, i) => <button key={i} onClick={()=>answer(i)} className="w-full p-4 bg-white dark:bg-gray-800 border-2 border-transparent hover:border-indigo-500 rounded-xl shadow-sm font-bold text-gray-700 dark:text-gray-200 transition">{opt}</button>)}</div>
-                    </div>
-                </div>
-            );
-            return (
-                <div className="h-full flex flex-col items-center justify-center p-6 text-center dark:text-white">
-                    <div className="text-6xl mb-4">🎉</div>
-                    <h2 className="text-3xl font-black mb-2">{t.score}</h2>
-                    <div className="text-5xl font-black text-indigo-600 mb-8">{score} / {questions.length}</div>
-                    <button onClick={()=>setState('setup')} className="bg-gray-200 dark:bg-gray-700 px-8 py-3 rounded-xl font-bold">{t.playAgain}</button>
-                </div>
-            );
+            const generatePrayer = async () => {
+                if(!input) return; 
+                setLoading(true); 
+                try { 
+                    const text = await callGemini(`Write a Coptic prayer in Arabic about: "${input}".`); 
+                    setData(text); 
+                } catch(e) { 
+                    alert("Error"); 
+                } 
+                setLoading(false);
+            };
+
+            if(mode === 'menu') return (<div className="h-full flex flex-col items-center justify-center p-6 gap-4"><button onClick={()=>{setMode('riddle'); generateRiddle();}} className="w-full max-w-xs p-6 bg-purple-500 rounded-2xl text-white font-bold shadow-lg">{t.actRiddle}</button><button onClick={()=>{setMode('prayer'); setData(null); setInput("");}} className="w-full max-w-xs p-6 bg-emerald-500 rounded-2xl text-white font-bold shadow-lg">{t.actPrayer}</button></div>);
+            if(mode === 'riddle') return (<div className="h-full flex flex-col p-6 text-center overflow-y-auto"><button onClick={()=>setMode('menu')} className="self-start mb-4">🔙</button>{loading && !data ? <div>...</div> : (<div className="flex flex-col items-center"><div className="bg-white p-6 rounded-2xl shadow mb-4 w-full"><p className="text-lg font-bold">{data?.riddle}</p></div>{feedback !== 'correct' && (<div className="flex gap-2 w-full"><input value={input} onChange={e=>setInput(e.target.value)} className="flex-1 p-2 border rounded" /><button onClick={checkRiddle} className="bg-indigo-600 text-white px-4 rounded">✅</button></div>)}{feedback === 'correct' && <div className="bg-green-100 p-4 rounded w-full text-green-800 font-bold">{t.riddleCorrect}</div>}{feedback === 'wrong' && <div className="bg-red-100 p-2 rounded w-full text-red-800">{t.riddleWrong}</div>}<button onClick={generateRiddle} className="mt-4 bg-gray-200 px-6 py-2 rounded">🔄</button></div>)}</div>);
+            if(mode === 'prayer') return (<div className="h-full flex flex-col p-6 text-center overflow-y-auto"><button onClick={()=>setMode('menu')} className="self-start mb-4">🔙</button>{!data ? (<div className="flex flex-col items-center"><input value={input} onChange={e=>setInput(e.target.value)} placeholder={t.prayerTopic} className="w-full p-4 border rounded-xl mb-4"/><button onClick={generatePrayer} className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold">{loading?"...":t.prayerGen}</button></div>) : (<div className="bg-white p-6 rounded-2xl shadow relative"><button onClick={()=>setData(null)} className="absolute top-2 right-4">✕</button><p className="text-lg whitespace-pre-wrap">{data}</p></div>)}</div>);
         }
 
         function IssueDetail({ issue, onBack, t }) {
@@ -304,25 +276,14 @@
                     <div className="flex justify-around bg-indigo-50 dark:bg-gray-800 p-1">
                         <button onClick={()=>setTab('mag')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${tab==='mag'?'bg-white text-indigo-600 shadow':'text-gray-500'}`}>📖 المجلة</button>
                         <button onClick={()=>setTab('video')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${tab==='video'?'bg-white text-indigo-600 shadow':'text-gray-500'}`}>📺 فيديو</button>
-                        <button onClick={()=>setTab('chat')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${tab==='chat'?'bg-white text-indigo-600 shadow':'text-gray-500'}`}>🤖 فهيم</button>
-                        {/* ✅ زر المسابقة */}
-                        <button onClick={()=>setTab('quiz')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${tab==='quiz'?'bg-white text-indigo-600 shadow':'text-gray-500'}`}>{t.quizTab}</button>
+                        <button onClick={()=>setTab('story')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${tab==='story'?'bg-white text-indigo-600 shadow':'text-gray-500'}`}>{t.storyTab}</button>
+                        <button onClick={()=>setTab('activities')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${tab==='activities'?'bg-white text-indigo-600 shadow':'text-gray-500'}`}>{t.activitiesTab}</button>
                     </div>
                     <div className="flex-1 bg-gray-100 dark:bg-black relative overflow-hidden">
                         {tab === 'mag' && <iframe src={issue.magazine_url} className="w-full h-full border-none bg-white"></iframe>}
-                        {tab === 'video' && <div className="h-full overflow-y-auto p-4 space-y-4">
-                            {issue.videos && issue.videos.length > 0 ? issue.videos.map((v, i) => {
-                                const embed = getYoutubeEmbed(v.url);
-                                return (
-                                    <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-lg">
-                                        <div className="aspect-video bg-black">{embed && <iframe src={embed} className="w-full h-full" allowFullScreen></iframe>}</div>
-                                        <div className="p-3 font-bold dark:text-white">{v.title.ar}</div>
-                                    </div>
-                                );
-                            }) : <div className="text-center py-10 opacity-50 dark:text-gray-400">لا توجد فيديوهات</div>}
-                        </div>}
-                        {tab === 'chat' && <ChatBot t={t} issueContext={issue.title.ar} />}
-                        {tab === 'quiz' && <QuizView issue={issue} t={t} />}
+                        {tab === 'video' && <div className="h-full overflow-y-auto p-4 space-y-4">{issue.videos && issue.videos.map((v, i) => (<div key={i} className="bg-white p-2 rounded shadow"><div className="aspect-video bg-black"><iframe src={getYoutubeEmbed(v.url)} className="w-full h-full"></iframe></div></div>))}</div>}
+                        {tab === 'story' && <StoryView t={t} />}
+                        {tab === 'activities' && <ActivitiesView t={t} />}
                     </div>
                 </div>
             );
@@ -331,12 +292,7 @@
         function LoginView({ onLogin, error, processing, t }) {
             const [code, setCode] = React.useState("");
             const [scanning, setScanning] = React.useState(false);
-            const startScan = () => {
-                setScanning(true); setTimeout(() => {
-                    const scanner = new Html5Qrcode("reader");
-                    scanner.start({ facingMode: "environment" }, { fps: 10 }, (decoded) => { scanner.stop(); setScanning(false); onLogin(decoded); }, () => {});
-                }, 100);
-            };
+            const startScan = () => { setScanning(true); setTimeout(() => { const scanner = new Html5Qrcode("reader"); scanner.start({ facingMode: "environment" }, { fps: 10 }, (decoded) => { scanner.stop(); setScanning(false); onLogin(decoded); }, () => {}); }, 100); };
             return (
                 <div className="flex flex-col items-center text-center">
                     <h2 className="text-2xl font-bold mb-4 dark:text-white">{t.loginTitle}</h2>
@@ -359,12 +315,18 @@
             const [targetId, setTargetId] = React.useState(null);
             const [loginError, setLoginError] = React.useState("");
             const [verifying, setVerifying] = React.useState(false);
-            const [chatOpen, setChatOpen] = React.useState(false);
             const [appBg, setAppBg] = React.useState('');
             const [appLogo, setAppLogo] = React.useState('');
             const [introData, setIntroData] = React.useState({}); 
             const [showIntro, setShowIntro] = React.useState(true); 
+            const [reflection, setReflection] = React.useState("");
+            const [reflecting, setReflecting] = React.useState(false);
+            const [showFriends, setShowFriends] = React.useState(false); 
             
+            // ✅ حالة تسجيل الطفل
+            const [child, setChild] = React.useState(JSON.parse(localStorage.getItem('bejouri_child_id')));
+            const [isLoginEnabled, setIsLoginEnabled] = React.useState(false);
+
             const t = TRANSLATIONS[lang];
 
             React.useEffect(() => {
@@ -378,18 +340,29 @@
                     if (settings) {
                         if (settings.value.appBackground) setAppBg(`url("${settings.value.appBackground}")`);
                         if (settings.value.appLogo) setAppLogo(settings.value.appLogo);
-                        setIntroData({ 
-                            title: settings.value.introTitle, 
-                            body: settings.value.introBody 
-                        });
+                        if (settings.value.enableChildLogin) setIsLoginEnabled(true); // ✅ التحقق من التفعيل
+                        setIntroData({ title: settings.value.introTitle, body: settings.value.introBody });
                     }
-                    // ✅ إضافة التحقق من وجود البيانات بشكل صحيح
-                    const { data: issuesData, error } = await supabase.from('issues').select('*').order('created_at', { ascending: false });
-                    if (error) console.error("Error fetching issues:", error);
+                    const { data: issuesData } = await supabase.from('issues').select('*').order('created_at', { ascending: false });
                     if (issuesData) setIssues(issuesData);
                 };
                 fetchData();
             }, [lang, theme]);
+
+            // ✅ نظام النبضات (10 دقائق) - معدل لربطه بالطفل المسجل
+            React.useEffect(() => {
+                const sendHeartbeat = async () => {
+                    let userId = child ? `child_${child.id}` : localStorage.getItem('bejouri_user_id');
+                    if (!userId && !child) {
+                        userId = 'user_' + Math.random().toString(36).substr(2, 9);
+                        localStorage.setItem('bejouri_user_id', userId);
+                    }
+                    await supabase.from('online_users').upsert({ user_id: userId, last_seen: new Date() }, { onConflict: 'user_id' });
+                };
+                sendHeartbeat();
+                const interval = setInterval(sendHeartbeat, 600000); 
+                return () => clearInterval(interval);
+            }, [child]);
 
             const handleUnlock = async (code) => {
                 setVerifying(true); setLoginError("");
@@ -400,101 +373,97 @@
                     localStorage.setItem('bejouri_unlocked', JSON.stringify(newUnlocked));
                     setActiveIssue(issues.find(i => i.id === targetId));
                     setShowLogin(false); setView("issue");
+                    
+                    // ✅ إضافة نقاط للطفل عند فتح عدد جديد
+                    if (child) {
+                        const { data: updated } = await supabase.from('children').update({ points: child.points + 50 }).eq('id', child.id).select().single();
+                        if (updated) { setChild(updated); localStorage.setItem('bejouri_child_id', JSON.stringify(updated)); alert("مبروك! أخذت 50 نقطة 🎉"); }
+                    }
                 } else {
-                    if(res.error === "USED") setLoginError(t.errUsed); else if(res.error === "WRONG_ISSUE") setLoginError(t.errWrong); else setLoginError(t.errInvalid);
+                    if(res.error === "USED") setLoginError(t.errUsed); else setLoginError(t.errInvalid);
                 }
                 setVerifying(false);
             };
 
             const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
             const toggleLang = () => setLang(prev => prev === 'ar' ? 'en' : 'ar');
+            const handleReflection = async (verse) => { setReflecting(true); try { const text = await callGemini(`Short Coptic contemplation: "${verse}"`); setReflection(text); } catch(e) { alert("Error"); } setReflecting(false); };
 
-            if (chatOpen) return ( <div className="h-screen flex flex-col"> <button onClick={() => setChatOpen(false)} className="p-4 bg-indigo-600 text-white font-bold">رجوع 🔙</button> <ChatBot t={t} /> </div> );
+            // ✅ إظهار شاشة التسجيل إذا كانت الميزة مفعلة والطفل غير مسجل
+            if (isLoginEnabled && !child) {
+                return <RegistrationModal t={t} onRegister={setChild} />;
+            }
+
             if(view === "issue" && activeIssue) return <IssueDetail issue={activeIssue} onBack={()=>setView("home")} t={t} />;
 
             return (
                 <div className="min-h-screen relative text-gray-900 dark:text-white font-sans transition-colors duration-300">
                     {showIntro && <IntroModal onClose={() => setShowIntro(false)} data={introData} t={t} />}
-
                     <div className="app-bg" style={{ backgroundImage: appBg }}></div>
                     
-                    {/* Header */}
                     <div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md p-4 shadow-sm flex justify-between items-center rounded-b-2xl mx-2 mt-2">
                         <div className="flex items-center gap-4">
                             {appLogo && <img src={appLogo} alt="Logo" className="h-20 w-20 object-contain drop-shadow-md" />}
                             <div>
-                                <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 drop-shadow-sm tracking-tight">{t.appTitle}</h1>
-                                <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-1">{t.subTitle}</p>
+                                {/* ✅ عرض اسم الطفل ونقاطه */}
+                                {child ? (
+                                    <div className="flex flex-col">
+                                        <span className="text-lg font-black text-indigo-700 dark:text-indigo-300">أهلاً، {child.full_name.split(' ')[0]} 👋</span>
+                                        <span className="text-xs font-bold bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full w-fit">⭐ {child.points} نقطة</span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 drop-shadow-sm tracking-tight">{t.appTitle}</h1>
+                                        <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-1">{t.subTitle}</p>
+                                    </>
+                                )}
                             </div>
                         </div>
-                        <div className="flex gap-2">
-                            <button onClick={toggleLang} className="bg-indigo-100 dark:bg-indigo-800 dark:text-white px-3 py-1 rounded-lg font-bold text-xs transition hover:scale-105">{t.langBtn}</button>
-                            <button onClick={toggleTheme} className="w-10 h-10 bg-indigo-50 dark:bg-gray-700 rounded-full flex items-center justify-center shadow transition hover:scale-105 text-xl">{theme === 'light' ? '☀️' : '🌙'}</button>
-                            <button onClick={() => setChatOpen(true)} className="w-10 h-10 bg-green-500 dark:bg-green-700 rounded-full flex items-center justify-center shadow transition hover:scale-105 text-xl">🤖</button>
+                        <div className="flex gap-2 items-center">
+                            <button onClick={() => setShowFriends(true)} className="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-3 py-1 rounded-lg font-bold text-xs transition hover:scale-105 flex items-center gap-1"><span className="text-base">📖</span><span className="hidden sm:inline">{t.friendsBook}</span></button>
+                            <button onClick={toggleLang} className="bg-gray-100 dark:bg-gray-800 dark:text-white px-3 py-1 rounded-lg font-bold text-xs transition hover:scale-105">{t.langBtn}</button>
+                            <button onClick={toggleTheme} className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center shadow transition hover:scale-105 text-xl">{theme === 'light' ? '☀️' : '🌙'}</button>
                         </div>
                     </div>
 
                     <div className="p-4 space-y-4 pb-20 relative z-0">
-                        {/* ✅ الآية الديناميكية: سحابة متحركة */}
                         {issues.length > 0 && issues[0].verse && issues[0].verse.text && (
-                            <div className="flex items-start gap-3 animate-fade-in my-8">
-                                <div className="w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center text-2xl shadow-md border-2 border-indigo-100 text-white z-10">✝️</div>
-                                <div className="flex-1 verse-bubble p-4 shadow-xl">
-                                    <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">{t.verseTitle}</h4>
-                                    <p className="text-sm font-bold leading-relaxed text-gray-800 dark:text-gray-200">"{issues[0].verse.text}"</p>
-                                    <div className="text-right text-xs text-gray-500 dark:text-gray-400 mt-2 font-bold">— {issues[0].verse.ref}</div>
+                            <div className="animate-fade-in my-8">
+                                <div className="flex items-start gap-3 relative">
+                                    <div className="w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center text-2xl shadow-md border-2 border-indigo-100 text-white z-10">✝️</div>
+                                    <div className="flex-1 verse-bubble p-4 shadow-xl">
+                                        <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">{t.verseTitle}</h4>
+                                        <p className="text-sm font-bold leading-relaxed text-gray-800 dark:text-gray-200">"{issues[0].verse.text}"</p>
+                                        <div className="text-right text-xs text-gray-500 dark:text-gray-400 mt-2 font-bold">— {issues[0].verse.ref}</div>
+                                        <button onClick={()=>handleReflection(issues[0].verse.text)} className="mt-3 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full font-bold hover:bg-indigo-200 transition flex items-center gap-1">{reflecting ? "..." : t.reflectBtn}</button>
+                                    </div>
                                 </div>
+                                {reflection && (<div className="mt-4 mr-10 bg-yellow-50 dark:bg-gray-800 p-4 rounded-xl border-r-4 border-yellow-400 shadow-md animate-pop-in"><div className="flex justify-between items-center mb-2"><h5 className="font-bold text-xs text-yellow-600 dark:text-yellow-400">{t.reflectTitle}</h5><button onClick={()=>setReflection("")} className="text-gray-400 hover:text-red-500">✕</button></div><p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">{reflection}</p></div>)}
                             </div>
                         )}
 
                         {issues.length === 0 && <div className="text-center bg-white/80 p-8 rounded-2xl">{t.loading}</div>}
                         
-                        {/* ✅ تصميم الكارت الجديد */}
                         {issues.map(issue => {
                             const isOpen = unlocked.includes(issue.id) || issue.is_free;
                             return (
-                                <div key={issue.id} onClick={() => isOpen ? (setActiveIssue(issue), setView("issue")) : (setTargetId(issue.id), setShowLogin(true), setLoginError(""))}
-                                     className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 transform transition hover:-translate-y-1 cursor-pointer group">
-                                    
+                                <div key={issue.id} onClick={() => isOpen ? (setActiveIssue(issue), setView("issue")) : (setTargetId(issue.id), setShowLogin(true), setLoginError(""))} className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 transform transition hover:-translate-y-1 cursor-pointer group">
                                     <div className="flex h-36">
-                                        
-                                        {/* قسم الصورة/الأيقونة (على اليمين) */}
-                                        <div className="w-32 shrink-0 relative overflow-hidden">
-                                            {issue.background ? (
-                                                <img src={issue.background} className="w-full h-full object-cover transition duration-500 group-hover:scale-110" alt="Cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-5xl bg-indigo-50 text-indigo-300">📖</div>
-                                            )}
-                                        </div>
-
-                                        {/* قسم النصوص (على اليسار) بخلفية سادة للقراءة */}
+                                        <div className="w-32 shrink-0 relative overflow-hidden">{issue.background ? (<img src={issue.background} className="w-full h-full object-cover transition duration-500 group-hover:scale-110" alt="Cover" />) : (<div className="w-full h-full flex items-center justify-center text-5xl bg-indigo-50 text-indigo-300">📖</div>)}</div>
                                         <div className="flex-1 p-5 flex flex-col justify-center bg-gradient-to-l from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="text-xs font-bold text-indigo-500 bg-indigo-50 px-2 py-1 rounded-md">{issue.date?.ar}</span>
-                                                {isOpen && <span className={`text-xs px-2 py-1 rounded-full font-bold ${issue.is_free ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{issue.is_free ? t.free : t.open}</span>}
-                                            </div>
+                                            <div className="flex items-center justify-between mb-2"><span className="text-xs font-bold text-indigo-500 bg-indigo-50 px-2 py-1 rounded-md">{issue.date?.ar}</span>{isOpen && <span className={`text-xs px-2 py-1 rounded-full font-bold ${issue.is_free ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{issue.is_free ? t.free : t.open}</span>}</div>
                                             <h3 className="text-2xl font-black text-gray-800 dark:text-white leading-tight mb-1">{issue.title.ar}</h3>
                                             <p className="text-xs text-gray-400 font-bold">اضغط للتصفح</p>
                                         </div>
                                     </div>
-
-                                    {/* طبقة القفل (تظهر فقط إذا كان مغلقاً) */}
-                                    {!isOpen && <div className="absolute inset-0 bg-white/30 dark:bg-black/50 backdrop-blur-[1px] flex flex-col items-center justify-center z-10">
-                                        <div className="bg-white/90 dark:bg-gray-900/90 p-3 rounded-full shadow-xl animate-bounce"><span className="text-2xl">🔒</span></div>
-                                    </div>}
+                                    {!isOpen && <div className="absolute inset-0 bg-white/30 dark:bg-black/50 backdrop-blur-[1px] flex flex-col items-center justify-center z-10"><div className="bg-white/90 dark:bg-gray-900/90 p-3 rounded-full shadow-xl animate-bounce"><span className="text-2xl">🔒</span></div></div>}
                                 </div>
                             );
                         })}
                     </div>
 
-                    {showLogin && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                            <div className="bg-white dark:bg-gray-900 w-full max-w-md p-6 rounded-3xl relative animate-pop-in shadow-2xl">
-                                <button onClick={()=>setShowLogin(false)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">✕</button>
-                                <LoginView onLogin={handleUnlock} error={loginError} processing={verifying} t={t} />
-                            </div>
-                        </div>
-                    )}
+                    {showFriends && (<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"><div className="bg-white dark:bg-gray-900 w-full max-w-2xl max-h-[80vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col relative border border-white/20 animate-pop-in"><div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 flex justify-between items-center text-white"><div><h2 className="text-2xl font-black">الكتاب العجيب 📖</h2><p className="text-sm text-indigo-100 font-medium">حكايات وفيديوهات أصحابنا</p></div><button onClick={() => setShowFriends(false)} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition text-lg font-bold">✕</button></div><div className="p-6 overflow-y-auto flex-1 bg-indigo-50 dark:bg-gray-800"><div className="text-center py-10 space-y-4"><div className="text-6xl animate-pulse">📺</div><h3 className="text-xl font-bold text-gray-700 dark:text-gray-300">قريباً.. فيديوهات أبطالنا!</h3><p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto">هنا هتلاقي فيديوهات ومشاركات أصحابنا الحلوين. استنونا!</p></div></div></div></div>)}
+                    {showLogin && (<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"><div className="bg-white dark:bg-gray-900 w-full max-w-md p-6 rounded-3xl relative animate-pop-in shadow-2xl"><button onClick={()=>setShowLogin(false)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">✕</button><LoginView onLogin={handleUnlock} error={loginError} processing={verifying} t={t} /></div></div>)}
                 </div>
             );
         }
