@@ -1,0 +1,11 @@
+Admin@2025
+
+كلمة سر الداتا بيس BeJouri#Hero
+
+Coptic@Power
+
+Jesus#Love
+
+StMary@Pray
+
+firebase deploy --only hosting
