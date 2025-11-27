@@ -46,15 +46,12 @@
         
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Initial passwords (will be overwritten by fetched config)
         let adminPassword = "123";
         let internalPassword = "456";
         
-        // Global state containers
         let currentCodeType = 'unused';
         let fetchedCodes = [];
         
-        // Backup passwords for emergency access
         const BACKUP_PASSWORDS = ["Admin@2025", "BeJouri#Hero", "Jesus#Love"];
 
         // Utility function to compress and optimize images before upload
@@ -66,11 +63,9 @@
                     img.onload = () => {
                         const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
                         const maxWidth = 1000; let width = img.width; let height = img.height;
-                        // Scale down image if wider than maxWidth
                         if (width > maxWidth) { height = Math.round(height * maxWidth / width); width = maxWidth; }
                         canvas.width = width; canvas.height = height;
                         ctx.drawImage(img, 0, 0, width, height);
-                        // Convert to JPEG Blob (70% quality)
                         canvas.toBlob((blob) => { resolve(new File([blob], file.name, { type: 'image/jpeg' })); }, 'image/jpeg', 0.7);
                     };
                 };
@@ -86,14 +81,12 @@
             const { error } = await supabase.storage.from('images').upload(fileName, compressed, { cacheControl: '3600', upsert: false });
             if (error) throw error;
             
-            // Get public URL
             const { data: urlData } = supabase.storage.from('images').getPublicUrl(fileName);
             return urlData.publicUrl;
         }
 
         // Utility function for code generation logic
         async function generateCodesLogic(issueId, count) {
-            // Ensure issueId is a number and count is valid
             if (!issueId || !count || isNaN(parseInt(issueId)) || isNaN(parseInt(count))) {
                 throw new Error("أدخل رقم العدد وعدد الأكواد كأرقام صحيحة.");
             }
@@ -104,34 +97,43 @@
 
             const codes = [];
             for (let i = 0; i < codeCount; i++) {
-                // Generate 5 random digits for the code suffix
                 const randomSuffix = Math.floor(10000 + Math.random() * 90000);
                 codes.push({ 
                     code: `BJ-${issueNum}-${randomSuffix}`, 
                     issue_id: issueNum, 
-                    used: false // Ensure default state is unused
+                    used: false 
                 });
             }
 
             const { error } = await supabase.from('codes').insert(codes);
             if (error) {
-                // 🚨 تحسين رسالة الخطأ هنا
                 console.error("Supabase Insert Error in generateCodesLogic:", error.message);
                 throw new Error(`فشل إدخال الأكواد: ${error.message}`);
             }
             return codes.length;
         }
         
+        // Utility function for QR code generation
+        const generateQrDataUrl = (value, size = 120) => {
+            if (!window.QRious) return 'https://placehold.co/120x120/f00/fff?text=Error';
+            const tempCanvas = document.createElement('canvas');
+            new window.QRious({
+                element: tempCanvas,
+                value: value,
+                size: size, 
+                padding: 10,
+            });
+            return tempCanvas.toDataURL('image/png');
+        };
+
         // --- Components ---
         
-        // Component for Admin Login
         function LoginView({ onLogin }) {
             const [pass, setPass] = React.useState('');
             const handleLogin = () => { 
                 if (pass === adminPassword || BACKUP_PASSWORDS.includes(pass)) {
                     onLogin(true); 
                 } else {
-                    // Using custom modal-style alert instead of native alert()
                     document.getElementById('root').innerHTML = `
                         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                             <div class="bg-white p-8 rounded-xl shadow-2xl text-center max-w-sm">
@@ -147,14 +149,12 @@
             return (<div className="h-screen flex items-center justify-center bg-gray-100"><div className="bg-white p-8 rounded-2xl shadow-xl w-96 text-center border-t-4 border-blue-600"><h2 className="text-3xl font-bold mb-6 text-gray-800">🔐 دخول الأدمن </h2><input type="password" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => {if (e.key === 'Enter') handleLogin()}} className="w-full p-4 border-2 border-gray-200 rounded-xl mb-4 outline-none" placeholder="كلمة السر"/><button onClick={handleLogin} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl w-full transition">دخول</button></div></div>);
         }
 
-        // Component for Internal Lock (for sensitive tabs)
         function InternalLockView({ onUnlock }) {
             const [pass, setPass] = React.useState('');
             const checkPass = () => { 
                 if (pass === internalPassword || BACKUP_PASSWORDS.includes(pass)) { 
                     onUnlock(); 
                 } else { 
-                    // Using console.log for error display within a controlled component
                     console.error('كلمة المرور الداخلية غير صحيحة 🔒'); 
                     setPass(''); 
                 } 
@@ -162,13 +162,94 @@
             return (<div className="flex flex-col items-center justify-center h-full p-10 text-center animate-fade-in"><div className="bg-white p-10 rounded-3xl shadow-2xl border border-red-100 max-w-md w-full"><div className="text-6xl mb-4">🛡️</div><h2 className="text-2xl font-black text-gray-800 mb-2">منطقة محمية</h2><p className="text-gray-500 mb-6 text-sm">أدخل الباسورد الداخلي الموحد للوصول</p><input type="password" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => {if (e.key === 'Enter') checkPass()}} className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl mb-4 text-center text-lg font-bold tracking-widest focus:border-red-400 outline-none" placeholder="••••••"/><button onClick={checkPass} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-lg transition transform hover:scale-105">فتح القفل 🔓</button></div></div>);
         }
 
+        // Component for editing child data
+        function EditChildModal({ child, onClose, refresh }) {
+            const [data, setData] = React.useState({ 
+                full_name: child.full_name, 
+                phone: child.phone, 
+                parent_phone: child.parent_phone, 
+                grade: child.grade, 
+                points: child.points 
+            });
+            const [loading, setLoading] = React.useState(false);
+
+            const handleSave = async () => {
+                setLoading(true);
+                try {
+                    const { error } = await supabase.from('children').update({
+                        full_name: data.full_name,
+                        phone: data.phone,
+                        parent_phone: data.parent_phone,
+                        grade: data.grade,
+                        points: data.points
+                    }).eq('id', child.id);
+
+                    if (error) throw error;
+                    
+                    console.log(`تم تعديل بيانات الطفل ${data.full_name} بنجاح.`);
+                    refresh();
+                    onClose();
+
+                } catch (e) {
+                    console.error("خطأ في حفظ البيانات:", e.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            const pointsHistory = child.points_history || [];
+
+            return (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white w-full max-w-2xl p-8 rounded-3xl shadow-2xl relative animate-fade-in border-t-4 border-indigo-600">
+                        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">✕</button>
+                        <h2 className="text-2xl font-black text-indigo-800 mb-6 border-b pb-2">✏️ تعديل بيانات: {child.full_name}</h2>
+                        
+                        <div className="grid md:grid-cols-2 gap-6">
+                            {/* General Data */}
+                            <div className="space-y-4">
+                                <div><label className="block text-sm font-bold text-gray-500 mb-1">الاسم بالكامل</label><input value={data.full_name} onChange={e=>setData({...data, full_name: e.target.value})} className="w-full p-3 border rounded-xl"/></div>
+                                <div><label className="block text-sm font-bold text-gray-500 mb-1">هاتف الطفل</label><input type="tel" value={data.phone} onChange={e=>setData({...data, phone: e.target.value})} className="w-full p-3 border rounded-xl"/></div>
+                                <div><label className="block text-sm font-bold text-gray-500 mb-1">هاتف ولي الأمر</label><input type="tel" value={data.parent_phone} onChange={e=>setData({...data, parent_phone: e.target.value})} className="w-full p-3 border rounded-xl"/></div>
+                                <div><label className="block text-sm font-bold text-gray-500 mb-1">الصف</label><select value={data.grade} onChange={e=>setData({...data, grade: e.target.value})} className="w-full p-3 border rounded-xl"><option>الصف الأول الابتدائي</option><option>الصف الثاني الابتدائي</option><option>الصف الثالث الابتدائي</option><option>الصف الرابع الابتدائي</option><option>الصف الخامس الابتدائي</option><option>الصف السادس الابتدائي</option></select></div>
+                                <div><label className="block text-sm font-bold text-gray-500 mb-1">النقاط الإجمالية ⭐</label><input type="number" value={data.points} onChange={e=>setData({...data, points: parseInt(e.target.value) || 0})} className="w-full p-3 border rounded-xl font-black text-xl text-orange-600"/></div>
+                            </div>
+                            
+                            {/* Points History */}
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-bold text-indigo-800">سجل النقاط ({pointsHistory.length})</h3>
+                                <div className="bg-gray-50 p-3 rounded-xl max-h-64 overflow-y-auto border">
+                                    {pointsHistory.length === 0 ? (
+                                        <p className="text-gray-500 text-center py-5">لا يوجد سجل نقاط لهذا الطفل.</p>
+                                    ) : (
+                                        pointsHistory.map((log, index) => (
+                                            <div key={index} className={`flex justify-between p-2 mb-1 rounded-lg ${log.points > 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                                                <span className="text-xs font-bold text-gray-700">{log.action}</span>
+                                                <span className={`text-xs font-black ${log.points > 0 ? 'text-green-700' : 'text-red-700'}`}>{log.points > 0 ? `+${log.points}` : log.points}</span>
+                                                <span className="text-xs text-gray-500">{new Date(log.timestamp).toLocaleDateString('ar-EG')}</span>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <button onClick={handleSave} disabled={loading} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition mt-6">
+                            {loading ? "جاري الحفظ..." : "حفظ التعديلات"}
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+
         // --- ✅ تبويب الإحصائيات (OverviewTab) ---
         function OverviewTab({ config, refresh }) {
-            // 🚨 تم حذف حالة activeUsers ووظائف جلبها (fetchCount) حسب الطلب
             const [children, setChildren] = React.useState([]);
             const [gradeFilter, setGradeFilter] = React.useState("all");
-            const [selectedChildren, setSelectedChildren] = React.useState(new Set()); // إضافة حالة لتحديد الأطفال
+            const [selectedChildren, setSelectedChildren] = React.useState(new Set());
             const [loadingChildren, setLoadingChildren] = React.useState(false);
+            const [childToEdit, setChildToEdit] = React.useState(null);
             
             const showChildrenDB = config?.enableChildLogin;
 
@@ -182,13 +263,12 @@
                     setLoadingChildren(false);
                 };
                 fetchChildren();
-            }, [showChildrenDB]);
+            }, [showChildrenDB, refresh]);
 
             const filteredChildren = React.useMemo(() => {
                 return gradeFilter === "all" ? children : children.filter(c => c.grade === gradeFilter);
             }, [children, gradeFilter]);
             
-            // دالة لتحديد/إلغاء تحديد طفل
             const toggleChildSelection = (id) => {
                 setSelectedChildren(prev => {
                     const newSet = new Set(prev);
@@ -201,39 +281,28 @@
                 });
             };
 
-            // ✅ دالة حذف جميع بيانات الأطفال
             const deleteAllChildren = async () => {
-                // NOTE: The native window.confirm is used here based on user's original design, but 
-                // it is highly recommended to replace it with a custom modal UI.
-                if (!window.confirm(`تحذير خطير: هل أنت متأكد من حذف جميع بيانات الأطفال المسجلين (Children)؟ هذا الإجراء لا يمكن التراجع عنه!`)) {
-                    return;
-                }
-                
-                if (!window.confirm(`يرجى التأكيد مرة أخرى: حذف ${children.length} سجل من قاعدة البيانات؟`)) {
+                if (!window.confirm(`تحذير خطير: هل أنت متأكد من حذف جميع بيانات الأطفال المسجلين (${children.length})؟ هذا الإجراء لا يمكن التراجع عنه!`)) {
                     return;
                 }
                 
                 try {
                     setLoadingChildren(true);
-                    
-                    // 🚨 FIX: التأكيد على FIX الحذف: استخدام .match({}) هو الأسلوب الأكثر موثوقية للحذف الكلي مع مفتاح الخدمة (Service Role Key).
-                    const { error, data } = await supabase.from('children').delete().match({});
+                    const { error } = await supabase.from('children').delete().not('id', 'is', null); // Use not('id', 'is', null) for bulk delete with service role key
                     
                     if (error) throw error;
                     
-                    const count = data ? data.length : 0;
-                    setChildren([]); // مسح البيانات من الواجهة
-                    setSelectedChildren(new Set()); // مسح التحديد
-                    console.log(`تم حذف جميع سجلات الأطفال بنجاح. عدد السجلات المحذوفة: ${count}`);
-                    refresh(); // لتحديث أي قوائم مرتبطة
+                    setChildren([]);
+                    setSelectedChildren(new Set());
+                    console.log(`تم حذف جميع سجلات الأطفال بنجاح.`);
+                    refresh();
                 } catch (e) {
-                    console.error("خطأ في حذف البيانات (تحقق من قواعد RLS):", e.message);
+                    console.error("خطأ في حذف البيانات:", e.message);
                 } finally {
                     setLoadingChildren(false);
                 }
             };
             
-            // ✅ دالة حذف المستخدمين المحددين
             const deleteSelectedChildren = async () => {
                 const ids = Array.from(selectedChildren);
                 if (ids.length === 0) return console.warn("الرجاء تحديد سجل واحد على الأقل للحذف.");
@@ -244,12 +313,11 @@
 
                 try {
                     setLoadingChildren(true);
-                    // Deletion using IN clause for selective delete
                     const { error } = await supabase.from('children').delete().in('id', ids); 
                     
                     if (error) throw error;
                     
-                    setSelectedChildren(new Set()); // مسح التحديد
+                    setSelectedChildren(new Set());
                     console.log(`تم حذف ${ids.length} سجل محدد بنجاح!`);
                     refresh();
                 } catch (e) {
@@ -260,31 +328,25 @@
             };
 
 
-            // Print function
             const printChildren = () => {
-                const printWindow = window.open('', '_blank'); // Open in a new blank window
-                
-                // Write custom content and styles for printing
+                const printWindow = window.open('', '_blank');
                 printWindow.document.write('<html><head><title>طباعة أصدقاء جوري</title><style>body{font-family:"Cairo", sans-serif; direction:rtl; margin: 30px;} table{width:100%; border-collapse:collapse; margin-top: 20px;} th,td{border:1px solid #000; padding:12px; text-align:center; font-size: 14px;} h1 { text-align: center; color: #1e3a8a; } th { background-color: #f3f4f6; } </style></head><body>');
                 printWindow.document.write(`<h1>قائمة أصدقاء جوري: ${gradeFilter === 'all' ? 'الكل' : gradeFilter} (${filteredChildren.length} بطل)</h1>`);
-                printWindow.document.write('<table><thead><tr><th>الاسم</th><th>الصف</th><th>الهاتف</th><th>ولي الأمر</th><th>النقاط ⭐</th></tr></thead><tbody>');
+                printWindow.document.write('<table><thead><tr><th>الاسم</th><th>الصف</th><th>هاتف الطفل</th><th>هاتف ولي الأمر</th><th>النقاط ⭐</th></tr></thead><tbody>');
                 filteredChildren.forEach(c => {
                     printWindow.document.write(`<tr><td>${c.full_name}</td><td>${c.grade}</td><td>${c.phone}</td><td>${c.parent_phone}</td><td>${c.points}</td></tr>`);
                 });
                 printWindow.document.write('</tbody></table></body></html>');
                 printWindow.document.close();
-                printWindow.focus(); // Focus on the new window
-                // Wait a moment for styles to load before printing
-                setTimeout(() => {
-                    printWindow.print();
-                }, 500);
+                printWindow.focus();
+                setTimeout(() => { printWindow.print(); }, 500);
             };
 
             return (
                 <div className="space-y-8 animate-fade-in">
-                    {/* كروت الإحصائيات (تم حذف كارت المستخدمين الحاليين) */}
+                    {childToEdit && <EditChildModal child={childToEdit} onClose={() => setChildToEdit(null)} refresh={refresh} />}
+                    
                     <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6 no-print">
-                        {/* Total Registered Children Card (Always spans 1/2 of row if enabled) */}
                         {showChildrenDB && (
                             <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-100 flex flex-col justify-center items-center text-center lg:col-span-1">
                                 <div className="text-5xl mb-4">🎓</div>
@@ -298,7 +360,6 @@
                             </div>
                         )}
                         
-                        {/* Filtered Count Card (Always spans 1/2 of row if enabled) */}
                         {showChildrenDB && (
                             <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-100 flex flex-col justify-center items-center text-center lg:col-span-1">
                                 <div className="text-5xl mb-4 text-orange-500">🏆</div>
@@ -311,7 +372,6 @@
                                 <p className="text-gray-500">بناءً على اختيار الصف</p>
                             </div>
                         )}
-                        {/* في حال عدم تفعيل تسجيل الأطفال، نعرض كارت فارغ للحفاظ على التنسيق */}
                         {!showChildrenDB && (
                             <div className="bg-gradient-to-br from-gray-200 to-gray-100 rounded-3xl p-8 text-gray-600 shadow-xl relative overflow-hidden lg:col-span-2">
                                 <div className="relative z-10 text-center">
@@ -323,7 +383,6 @@
                         )}
                     </div>
 
-                    {/* جدول بيانات الأطفال (يظهر فقط عند التفعيل) */}
                     {showChildrenDB && (
                         <div className="bg-white p-6 rounded-2xl shadow-lg border-t-4 border-orange-500 animate-fade-in">
                             <div className="flex flex-wrap justify-between items-center mb-6 gap-4 no-print">
@@ -340,12 +399,10 @@
                                     </select>
                                     <button onClick={printChildren} className="bg-gray-800 text-white px-4 py-3 rounded-xl font-bold hover:bg-black transition">🖨️ طباعة</button>
                                     
-                                    {/* ✅ زر حذف السجلات المحددة */}
                                     <button onClick={deleteSelectedChildren} disabled={loadingChildren || selectedChildren.size === 0} className={`text-white px-4 py-3 rounded-xl font-bold transition ${loadingChildren || selectedChildren.size === 0 ? 'bg-red-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}>
                                         ❌ حذف المحدد ({selectedChildren.size})
                                     </button>
                                     
-                                    {/* زر حذف قاعدة البيانات */}
                                     <button onClick={deleteAllChildren} disabled={loadingChildren || children.length === 0} className={`text-white px-4 py-3 rounded-xl font-bold transition ${loadingChildren || children.length === 0 ? 'bg-red-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}>
                                         🗑️ حذف قاعدة بيانات جوري
                                     </button>
@@ -356,23 +413,23 @@
                                 <table className="w-full text-sm text-right">
                                     <thead className="bg-gray-100 text-gray-600 uppercase font-extrabold tracking-wider">
                                         <tr>
-                                            <th className="p-4 rounded-r-xl">تحديد</th> {/* تم إضافة عمود التحديد */}
+                                            <th className="p-4 rounded-r-xl">تحديد</th>
                                             <th className="p-4">الاسم</th>
                                             <th className="p-4">الصف</th>
                                             <th className="p-4">هاتف الطفل</th>
-                                            <th className="p-4 rounded-l-xl">هاتف ولي الأمر</th>
+                                            <th className="p-4">هاتف ولي الأمر</th>
                                             <th className="p-4">النقاط ⭐</th>
+                                            <th className="p-4 rounded-l-xl">تحكم</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
                                         {loadingChildren ? (
-                                            <tr><td colSpan="6" className="p-8 text-center text-blue-500 font-bold animate-pulse">جاري تحميل بيانات الأبطال...</td></tr>
+                                            <tr><td colSpan="7" className="p-8 text-center text-blue-500 font-bold animate-pulse">جاري تحميل بيانات الأبطال...</td></tr>
                                         ) : filteredChildren.length === 0 ? (
-                                            <tr><td colSpan="6" className="p-8 text-center text-gray-400">لا توجد بيانات مطابقة لمعايير التصفية.</td></tr>
+                                            <tr><td colSpan="7" className="p-8 text-center text-gray-400">لا توجد بيانات مطابقة لمعايير التصفية.</td></tr>
                                         ) : (
                                             filteredChildren.map(child => (
                                                 <tr key={child.id} className="hover:bg-gray-50">
-                                                    {/* خلية التحديد */}
                                                     <td className="p-4 text-center">
                                                         <input 
                                                             type="checkbox" 
@@ -386,6 +443,9 @@
                                                     <td className="p-4 font-mono text-left whitespace-nowrap">{child.phone}</td>
                                                     <td className="p-4 font-mono text-left whitespace-nowrap">{child.parent_phone}</td>
                                                     <td className="p-4 font-black text-orange-600 whitespace-nowrap">{child.points}</td>
+                                                    <td className="p-4 whitespace-nowrap">
+                                                        <button onClick={() => setChildToEdit(child)} className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg font-bold hover:bg-indigo-100 transition">تعديل ✏️</button>
+                                                    </td>
                                                 </tr>
                                             ))
                                         )}
@@ -407,7 +467,6 @@
             const handleAddVideo = () => setIssueData(p => ({ ...p, videos: [...p.videos, { title: '', url: '' }] }));
             const handleVideoChange = (index, field, value) => { const newVideos = [...issueData.videos]; newVideos[index][field] = value; setIssueData(p => ({ ...p, videos: newVideos })); };
             
-            // Prepare form for editing existing issue
             const startEdit = (issue) => { 
                 setEditingId(issue.id); 
                 setIssueData({ 
@@ -418,21 +477,18 @@
                     verseText: issue.verse?.text || '', 
                     verseRef: issue.verse?.ref || '', 
                     isFree: issue.is_free || false, 
-                    backgroundUrl: issue.background || '', // ✅ استخدام الرابط الحالي 
-                    backgroundFile: null, // ✅ إعادة تعيين الملف عند التعديل
-                    // Ensure there's at least one video input slot
+                    backgroundUrl: issue.background || '', 
+                    backgroundFile: null, 
                     videos: issue.videos && issue.videos.length > 0 ? issue.videos : [{ title: '', url: '' }] 
                 }); 
-                window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top for easy editing
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             };
 
-            // Reset form state
             const cancelEdit = () => { 
                 setEditingId(null); 
                 setIssueData({ id: '', title: '', date: '', magUrl: '', verseText: '', verseRef: '', isFree: false, backgroundUrl: '', backgroundFile: null, videos: [{ title: '', url: '' }] }); 
             };
 
-            // Save or Update Issue
             const saveIssue = async () => { 
                 setLoading(true); 
                 try { 
@@ -440,25 +496,21 @@
 
                     let finalBgUrl = issueData.backgroundUrl;
                     
-                    // الأولوية لرفع الملف إذا كان موجودًا
                     if (issueData.backgroundFile) {
                         finalBgUrl = await uploadFile(issueData.backgroundFile);
                         console.log('تم رفع الصورة بنجاح.');
                     }
 
-                    // 2. Construct payload
                     const issuePayload = { 
                         title: { ar: issueData.title }, 
                         date: { ar: issueData.date }, 
                         magazine_url: issueData.magUrl, 
                         is_free: issueData.isFree, 
                         verse: { text: issueData.verseText, ref: issueData.verseRef }, 
-                        // Filter out empty video objects
                         videos: issueData.videos.filter(v => v.title && v.url),
-                        background: finalBgUrl || '' // استخدام الرابط النهائي أو سلسلة فارغة
+                        background: finalBgUrl || ''
                     }; 
                     
-                    // 3. Perform database operation
                     let error; 
                     if (editingId) { 
                         const { error: updateError } = await supabase.from('issues').update(issuePayload).eq('id', editingId); 
@@ -470,7 +522,6 @@
                     } 
                     if (error) throw error; 
 
-                    // 4. Success handling
                     console.log(editingId ? 'تم التعديل بنجاح! ✅' : 'تم النشر بنجاح! ✅');
                     
                     cancelEdit(); 
@@ -482,9 +533,7 @@
                 } 
             };
 
-            // Delete Issue
             const deleteIssue = async (id) => { 
-                // Custom modal replacement for confirm()
                 if (!window.confirm(`هل أنت متأكد من حذف العدد #${id}؟ لن يمكن التراجع عن هذا الإجراء.`)) return;
 
                 const { error } = await supabase.from('issues').delete().eq('id', id); 
@@ -498,12 +547,9 @@
                     <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-lg border-t-4 border-blue-600 h-fit">
                         <h2 className="font-bold text-xl mb-4 text-blue-800">{editingId ? `✏️ تعديل العدد #${editingId}` : '➕ إضافة عدد جديد'}</h2>
                         <div className="space-y-4">
-                            {/* Issue ID (Disabled when editing) */}
                             <input value={issueData.id} onChange={e => setIssueData(p => ({ ...p, id: e.target.value }))} type="number" pattern="\d*" inputMode="numeric" placeholder="رقم العدد (ID)" disabled={!!editingId} className={`w-full p-3 border rounded-xl bg-gray-50 ${editingId ? 'opacity-50 cursor-not-allowed' : ''}`}/>
-                            {/* Title and Date */}
                             <input value={issueData.title} onChange={e => setIssueData(p => ({ ...p, title: e.target.value }))} placeholder="العنوان" className="w-full p-3 border rounded-xl bg-gray-50"/>
                             <input value={issueData.date} onChange={e => setIssueData(p => ({ ...p, date: e.target.value }))} placeholder="التاريخ" className="w-full p-3 border rounded-xl bg-gray-50"/>
-                            {/* Magazine URL */}
                             <input value={issueData.magUrl} onChange={e => setIssueData(p => ({ ...p, magUrl: e.target.value }))} placeholder="رابط المجلة (FlipHTML5)" className="w-full p-3 border rounded-xl bg-gray-50"/>
                             
                             {/* Bible Verse Section */}
@@ -530,7 +576,7 @@
                             {/* Cover Image Upload/URL */}
                             <div className="space-y-2 bg-gray-50 p-3 rounded-xl border">
                                 <label className="block text-sm font-bold mb-1">صورة الغلاف (أولوية الرفع على الرابط):</label>
-                                <input value={issueData.backgroundUrl} onChange={e => { setIssueData(p => ({ ...p, backgroundUrl: e.target.value, backgroundFile: null })); }} placeholder="1. رابط URL مباشر للصورة" className="w-full p-2 border rounded text-sm mb-2"/>
+                                <input value={issueData.backgroundUrl} onChange={e => { setIssueData(p => ({ ...p, backgroundUrl: e.target.value })); setIssueData(p => ({...p, backgroundFile: null})); }} placeholder="1. رابط URL مباشر للصورة" className="w-full p-2 border rounded text-sm mb-2"/>
                                 <input type="file" onChange={e => { setIssueData(p => ({ ...p, backgroundFile: e.target.files[0], backgroundUrl: '' })); }} className="w-full text-sm p-2 border rounded-xl bg-white"/>
                             </div>
 
@@ -575,9 +621,8 @@
 
         // Component for Amazing Book Videos Management
         function AmazingBookTab() {
-            // 🚨 FIX: تغيير الحالة لدعم إدخال فيديوهات متعددة في وقت واحد
             const [videos, setVideos] = React.useState([]); 
-            const [newVideos, setNewVideos] = React.useState([{ title_ar: '', url: '' }]); // قائمة الفيديوهات الجديدة المنتظرة للإدخال
+            const [newVideos, setNewVideos] = React.useState([{ title_ar: '', url: '' }]);
             const [loading, setLoading] = React.useState(false);
 
             const fetchVideos = React.useCallback(async () => { 
@@ -587,7 +632,6 @@
 
             React.useEffect(() => { fetchVideos(); }, [fetchVideos]);
 
-            // دوال التعامل مع إدخالات الفيديوهات الجديدة
             const handleVideoChange = (index, field, value) => {
                 const updatedVideos = [...newVideos];
                 updatedVideos[index][field] = value;
@@ -607,7 +651,7 @@
                     if (error) throw error; 
                     
                     console.log(`تم إضافة ${videosToInsert.length} فيديو بنجاح! ✅`); 
-                    setNewVideos([{ title_ar: '', url: '' }]); // Reset queue to one empty field
+                    setNewVideos([{ title_ar: '', url: '' }]);
                     fetchVideos(); 
                 } catch (e) { 
                     console.error('خطأ:', e.message); 
@@ -616,7 +660,6 @@
                 } 
             };
             
-            // NOTE: Replaced confirm()/alert() with window.confirm()/console.error
             const deleteVideo = async (id, title) => { 
                 if(!window.confirm(`هل أنت متأكد من حذف فيديو "${title}"؟`)) { 
                     return; 
@@ -685,21 +728,18 @@
             );
         }
 
-        // --- NEW QR CODE DISPLAY COMPONENT ---
+        // Component for Code Generation and Management
         const QRCodeDisplay = ({ value }) => {
             const canvasRef = React.useRef(null);
             React.useEffect(() => {
-                // التأكد من وجود العنصر ومكتبة QRious
                 if (canvasRef.current && window.QRious) {
-                    // مسح اللوحة قبل الرسم
                     const ctx = canvasRef.current.getContext('2d');
                     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
                     
-                    // رسم رمز QR الجديد
                     new window.QRious({
                         element: canvasRef.current,
                         value: value,
-                        size: 80, // حجم مناسب للمعاينة
+                        size: 80,
                         padding: 10,
                     });
                 }
@@ -707,21 +747,6 @@
             return <canvas ref={canvasRef} className="w-20 h-20 mx-auto" />;
         };
 
-        // 💡 وظيفة مساعدة لتحويل QR Code إلى صورة Base64
-        const generateQrDataUrl = (value, size = 120) => {
-            if (!window.QRious) return 'https://placehold.co/120x120/f00/fff?text=Error';
-            const tempCanvas = document.createElement('canvas');
-            new window.QRious({
-                element: tempCanvas,
-                value: value,
-                size: size, 
-                padding: 10,
-            });
-            // تحويل إلى رابط بيانات (Base64)
-            return tempCanvas.toDataURL('image/png');
-        };
-
-        // Component for Code Generation and Management
         function CodesTab({ refreshIssues }) {
             const [issueId, setIssueId] = React.useState(''); const [count, setCount] = React.useState(''); const [loading, setLoading] = React.useState(false); const [codes, setCodes] = React.useState([]); const [issuesList, setIssuesList] = React.useState([]);
             React.useEffect(() => { const fetchList = async () => { const { data } = await supabase.from('issues').select('id, title'); if (data) setIssuesList(data); }; fetchList(); }, [refreshIssues]);
@@ -732,11 +757,10 @@
                 fetchedCodes = data || []; 
                 setCodes(fetchedCodes); 
             };
-            // NOTE: Replaced alert() with console.log
+
             const generateCodes = async () => { 
                 setLoading(true); 
                 try { 
-                    // 🚨 تأكد من أن issueId و count هما قيمتان رقميتان قبل الإرسال
                     if (!issueId || isNaN(parseInt(issueId)) || !count || isNaN(parseInt(count))) {
                         throw new Error("الرجاء التأكد من إدخال رقم العدد وعدد الأكواد كأرقام صحيحة.");
                     }
@@ -745,23 +769,19 @@
                     fetchCodesPreview(); 
                 } catch(e) { 
                     console.error('خطأ في التوليد:', e.message);
-                    // عرض رسالة الخطأ للمستخدم
-                    // لا تستخدم alert()، ولكن استخدم console.error
                 } finally { 
                     setLoading(false); 
                 } 
             };
-            // NOTE: Replaced confirm()/alert() with window.confirm()/console.error
+
             const deleteDisplayedCodes = async () => { if (codes.length === 0 || !window.confirm(`حذف ${codes.length} كود؟`)) return; const codesToDelete = codes.map(c => c.code); const { error } = await supabase.from('codes').delete().in('code', codesToDelete); if (error) console.error('خطأ في الحذف:', error.message); else { console.log("تم الحذف!"); setCodes([]); } };
             const switchView = (type) => { currentCodeType = type; fetchCodesPreview(); };
             
-            // ✅ FIX: إصلاح عملية طباعة الـ QR Code باستخدام Base64
             const printCurrentView = () => { 
                 if(codes.length === 0) return console.warn("لا توجد أكواد لعرضها أو طباعتها."); 
                 
                 const printWindow = window.open('', '_blank'); 
                 
-                // 1. بناء هيكل الطباعة
                 let printContent = `
                     <html>
                     <head>
@@ -781,10 +801,8 @@
                         <div class="qr-grid">
                 `;
                 
-                // 2. توليد محتوى QR Code كصور Base64 وإضافتها للـ HTML
                 codes.forEach(c => { 
-                    // توليد رابط Base64 لكل كود
-                    const qrDataUrl = generateQrDataUrl(c.code, 120); // حجم طباعة مناسب
+                    const qrDataUrl = generateQrDataUrl(c.code, 120);
                     
                     printContent += `
                         <div class="qr-card">
@@ -801,12 +819,10 @@
                     </html>
                 `;
 
-                // 3. كتابة المحتوى والطباعة
                 printWindow.document.write(printContent);
                 printWindow.document.close(); 
                 printWindow.focus(); 
                 
-                // انتظار قصير لضمان تحميل الصور (Base64) قبل الطباعة
                 setTimeout(() => printWindow.print(), 100); 
             };
             
@@ -832,13 +848,12 @@
                     
                     <button onClick={fetchCodesPreview} className="w-full bg-gray-800 text-white px-6 py-3 rounded-xl font-bold hover:bg-black transition mb-4">عرض الأكواد</button>
                     
-                    {/* --- التغيير هنا: عرض الـ QR Codes في المعاينة --- */}
                     <div className="bg-gray-50 p-4 rounded-xl border mb-4">
                         <div className="flex justify-between mb-4"><span className="font-bold">معاينة الأكواد:</span><span className="bg-blue-100 px-3 py-1 rounded-full font-bold">{codes.length} كود</span></div>
                         <div className="h-64 overflow-y-auto bg-white p-3 rounded-lg border">
                             {codes.length > 0 ? (
                                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                                    {codes.slice(0, 25).map(c => ( // Limit preview to 25 items for performance
+                                    {codes.slice(0, 25).map(c => (
                                         <div key={c.code} className="text-center p-1 bg-white rounded-lg shadow-sm border border-gray-100">
                                             <QRCodeDisplay value={c.code} />
                                             <div className="text-xs font-mono text-gray-600 truncate mt-1">{c.code}</div>
@@ -851,7 +866,6 @@
                             )}
                         </div>
                     </div>
-                    {/* ----------------------------------------------- */}
 
                     <div className="grid grid-cols-2 gap-3">
                         <button onClick={printCurrentView} className="bg-purple-600 text-white py-3 rounded-xl font-bold shadow">🖨️ طباعة</button>
@@ -866,19 +880,15 @@
             const [data, setData] = React.useState(config);
             const [loading, setLoading] = React.useState(false);
             
-            // متغيرات مؤقتة للملفات المرفوعة
             const [bgFile, setBgFile] = React.useState(null);
             const [logoFile, setLogoFile] = React.useState(null); 
             
-            // 💡 حالة إدارة مفاتيح الذكاء الاصطناعي
-            // تهيئة المفاتيح من الكونفيج
             const initialKeys = config.gemini_keys_list && Array.isArray(config.gemini_keys_list) 
                 ? config.gemini_keys_list.map(k => ({ id: Math.random().toString(36).substring(2, 9), ...k })) 
                 : [{ id: Math.random().toString(36).substring(2, 9), key: '', expires: '' }];
                 
             const [aiKeysList, setAiKeysList] = React.useState(initialKeys);
 
-            // ✅ هذا السطر يضمن تحديث الفورم بمجرد وصول البيانات من السيرفر
             React.useEffect(() => { 
                 setData(config); 
                 const updatedKeys = config.gemini_keys_list && Array.isArray(config.gemini_keys_list) 
@@ -906,19 +916,16 @@
                     let finalBgUrl = data.appBackground;
                     let finalLogoUrl = data.appLogo;
 
-                    // 1. معالجة رفع الخلفية
                     if (bgFile) {
                         console.log('جاري رفع صورة الخلفية...');
                         finalBgUrl = await uploadFile(bgFile);
                     }
                     
-                    // 2. معالجة رفع اللوجو
                     if (logoFile) {
                         console.log('جاري رفع اللوجو...');
                         finalLogoUrl = await uploadFile(logoFile);
                     }
                     
-                    // 💡 تجهيز قائمة المفاتيح للحفظ (فلترة القيم الفارغة وإزالة الـ ID)
                     const cleanKeysList = aiKeysList
                         .filter(k => k.key.trim() !== '')
                         .map(k => ({ key: k.key.trim(), expires: k.expires || null }));
@@ -927,13 +934,12 @@
                     const newVal = {
                         adminPassword: data.adminPassword,
                         internalPassword: data.internalPassword,
-                        appBackground: finalBgUrl, // ✅ الرابط النهائي
-                        appLogo: finalLogoUrl, // ✅ الرابط النهائي
+                        appBackground: finalBgUrl,
+                        appLogo: finalLogoUrl,
                         introTitle: data.introTitle,
                         introBody: data.introBody,
                         enableChildLogin: !!data.enableChildLogin,
                         enableInternalLock: !!data.enableInternalLock,
-                        // 💡 حفظ المفاتيح الجديدة في الكونفيج
                         gemini_keys_list: cleanKeysList
                     };
 
@@ -949,10 +955,9 @@
                 <div className="max-w-4xl mx-auto bg-white p-8 rounded-3xl shadow-xl border-t-4 border-blue-600 animate-fade-in">
                     <h2 className="font-bold text-2xl mb-6 border-b pb-4 text-gray-800">⚙️ الإعدادات العامة</h2>
                     
-                    {/* 💡 قسم إدارة مفاتيح الذكاء الاصطناعي */}
                     <div className="bg-red-50 p-6 rounded-xl border border-red-200 mb-6 space-y-4">
                         <h3 className="font-bold text-red-800 flex items-center gap-2">🔑 إدارة مفاتيح Gemini API</h3>
-                        <p className="text-sm text-red-600 font-medium">أدخل مفتاحاً واحداً على الأقل. سيستخدم التطبيق المفاتيح بالتناوب في حال انتهاء صلاحية المفتاح الحالي أو فشله. (المفاتيح القديمة سيتم تخطيها تلقائياً).</p>
+                        <p className="text-sm text-red-600 font-medium">أدخل مفتاحاً واحداً على الأقل. سيستخدم التطبيق المفاتيح بالتناوب في حال انتهاء صلاحية المفتاح الحالي أو فشله.</p>
                         
                         {aiKeysList.map((keyObj, index) => (
                             <div key={keyObj.id} className="flex gap-2 items-center bg-white p-3 rounded-xl border relative shadow-sm">
@@ -985,7 +990,6 @@
                     <div className="bg-yellow-50 p-6 rounded-xl border border-yellow-200 mb-6 space-y-4">
                         <h3 className="font-bold text-yellow-800 mb-4 flex items-center gap-2"><span className="text-2xl">🚀</span> ميزات متقدمة</h3>
                         
-                        {/* تفعيل نظام تسجيل جوري */}
                         <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm">
                             <div>
                                 <div className="font-bold text-gray-800">تفعيل نظام تسجيل جوري</div>
@@ -997,7 +1001,6 @@
                             </label>
                         </div>
 
-                        {/* تفعيل القفل الداخلي */}
                         <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm">
                             <div>
                                 <div className="font-bold text-gray-800">تفعيل القفل الداخلي (Double Security)</div>
@@ -1019,13 +1022,11 @@
                         </div>
                         
                         <div className="grid md:grid-cols-2 gap-4">
-                            {/* الخلفية: رابط + رفع */}
                             <div className="space-y-2 bg-gray-50 p-3 rounded-xl border">
                                 <label className="block font-bold mb-1">صورة الخلفية (URL أو رفع):</label>
                                 <input value={data.appBackground} onChange={e => { setData(p => ({ ...p, appBackground: e.target.value })); setBgFile(null); }} placeholder="1. رابط URL مباشر للصورة" className="w-full p-2 border rounded text-sm mb-2"/>
                                 <input type="file" accept="image/*" onChange={e => { setBgFile(e.target.files[0]); setData(p => ({ ...p, appBackground: '' })); }} className="w-full text-sm p-2 border rounded-xl bg-white"/>
                             </div>
-                            {/* اللوجو: رابط + رفع */}
                             <div className="space-y-2 bg-gray-50 p-3 rounded-xl border">
                                 <label className="block font-bold mb-1">اللوجو (URL أو رفع):</label>
                                 <input value={data.appLogo} onChange={e => { setData(p => ({ ...p, appLogo: e.target.value })); setLogoFile(null); }} placeholder="1. رابط URL مباشر للوجو" className="w-full p-2 border rounded text-sm mb-2"/>
@@ -1056,14 +1057,26 @@
                         setConfig(settingsData.value);
                         adminPassword = settingsData.value.adminPassword;
                         internalPassword = settingsData.value.internalPassword || "456"; 
+                    } else {
+                        // Set default config if none is found
+                        setConfig({
+                            adminPassword: "123",
+                            internalPassword: "456",
+                            enableChildLogin: false,
+                            enableInternalLock: false,
+                            gemini_keys_list: [{ key: 'DEFAULT_KEY', expires: null }]
+                        });
                     }
-                    const { data: issuesData, error } = await supabase.from('issues').select('*').order('created_at', { ascending: false });
-                    if (error) console.error("Fetch error:", error);
-                    if (issuesData) setIssues(issuesData);
-                } catch (e) { console.error("Error:", e); } finally { setLoading(false); }
-            }, []);
 
-            React.useEffect(() => { fetchInitialData(); }, [refreshToggle]);
+                    const { data: issuesData, error } = await supabase.from('issues').select('*').order('created_at', { ascending: false });
+                    if (error) console.error("Fetch issues error:", error);
+                    if (issuesData) setIssues(issuesData);
+                } catch (e) { console.error("Error during initial data fetch:", e); } finally { setLoading(false); }
+            }, [refreshToggle]); // Dependency on refreshToggle
+
+            React.useEffect(() => { 
+                fetchInitialData(); 
+            }, [refreshToggle]);
 
             const handleLogin = (isSuccess) => { if (isSuccess) { sessionStorage.setItem('admin', 'true'); setIsAuth(true); } };
             const handleRefresh = () => setRefreshToggle(p => !p);
@@ -1073,23 +1086,9 @@
                 sessionStorage.setItem('internal_lock', 'unlocked');
             }
             
-            // لإعادة قفل الأزرار الحساسة عند تغيير التبويب
-            React.useEffect(() => {
-                const sensitiveTabs = ['issues', 'codes', 'amazing_book', 'settings'];
-                if (sensitiveTabs.includes(currentTab) && config.enableInternalLock && !isInternalUnlocked) {
-                   // لا نفعل شيء هنا، فقط نترك شاشة القفل تظهر
-                }
-            }, [currentTab, config.enableInternalLock]);
-
-
-            if (loading) return <div className="h-screen flex items-center justify-center text-xl font-bold">جاري التحميل...</div>;
-            if (!isAuth) return <LoginView onLogin={handleLogin} />;
-
             const renderContent = () => {
-                // The Overview tab is always accessible after admin login
                 if (currentTab === 'overview') return <OverviewTab config={config} refresh={handleRefresh} />; 
                 
-                // شاشة القفل الداخلي للتبويبات الحساسة
                 const sensitiveTabs = ['issues', 'codes', 'amazing_book', 'settings'];
                 if (sensitiveTabs.includes(currentTab) && config.enableInternalLock && !isInternalUnlocked) {
                     return <InternalLockView onUnlock={handleInternalUnlock} />;
@@ -1099,23 +1098,23 @@
                     case 'issues': return <IssuesTab issues={issues} refresh={handleRefresh} />;
                     case 'codes': return <CodesTab refreshIssues={handleRefresh} />;
                     case 'amazing_book': return <AmazingBookTab />;
-                    // 💡 تمرير المفاتيح للإعدادات
                     case 'settings': return <SettingsTab config={{...config, adminPassword, internalPassword}} refresh={handleRefresh} />;
                     default: return <OverviewTab config={config} refresh={handleRefresh} />;
                 }
             };
             
-            // تلوين الأزرار الحساسة
             const getTabButtonClass = (tabName) => {
                 const baseClass = `tab-btn px-6 py-2 rounded-xl font-bold shadow-sm ${currentTab === tabName ? 'active' : 'bg-gray-100 text-gray-600'}`;
                 const sensitiveTabs = ['issues', 'codes', 'amazing_book', 'settings'];
                 const isSensitive = sensitiveTabs.includes(tabName);
                 
-                // عرض القفل إذا كان التبويب حساساً وميزة القفل الداخلي مفعلة ولم يتم فتحه بعد
                 const showLock = isSensitive && config.enableInternalLock && !isInternalUnlocked;
 
                 return `${baseClass} ${showLock ? 'text-red-500' : ''}`;
             };
+
+            if (loading) return <div className="h-screen flex items-center justify-center text-xl font-bold">جاري التحميل...</div>;
+            if (!isAuth) return <LoginView onLogin={handleLogin} />;
 
             return (
                 <div className="max-w-7xl mx-auto">
