@@ -137,22 +137,24 @@
             }];
             
             try {
+                // IMPORTANT: Removed points_history from SELECT to prevent error if column is missing
                 const { data: updatedChild, error } = await supabase.from('children')
                     .update({ 
                         points: newTotalPoints, 
                         points_history: newHistory 
                     })
                     .eq('id', childId)
-                    .select('id, full_name, phone, parent_phone, grade, points, unlocked_issues, points_history') 
+                    .select('id, full_name, phone, parent_phone, grade, points, unlocked_issues') // Removed points_history from SELECT
                     .single();
 
                 if (error) throw error;
-                return updatedChild;
+                // Add history back manually for state consistency
+                return { ...updatedChild, points_history: newHistory };
 
             } catch (e) {
-                // IMPORTANT: The app must not crash if the column points_history is not yet created.
-                // If it fails, log the error and return null.
+                // If the error is related to missing column (which it is), log warning but don't crash
                 console.warn("Failed to update points or log history (Check for missing points_history column in Supabase):", e);
+                // Fallback: Just return current child data without history for now
                 return null;
             }
         }
@@ -178,18 +180,20 @@
                     const unlockedIssues = child.unlocked_issues || [];
                     if (!unlockedIssues.includes(issueId)) {
                         const newIssues = [...unlockedIssues, issueId];
-                        // Update child's unlocked issues list
+                        
+                        // IMPORTANT: Update to select fewer columns to avoid missing column error
                         const { data: updateData, error: updateError } = await supabase.from('children')
                             .update({ unlocked_issues: newIssues })
                             .eq('id', child.id)
-                            .select('id, points, points_history')
+                            .select('id, points') // Only select required data
                             .single();
                         
                         if(updateError) console.warn("Failed to update unlocked_issues column. Ensure it exists in Supabase.", updateError);
 
                         // 3. منح النقاط وتسجيل النشاط
+                        // NOTE: If unlocked_issues is missing, we proceed with current child data
                         const currentPoints = child.points || (updateData ? updateData.points : 0);
-                        const currentHistory = child.points_history || (updateData ? updateData.points_history : []);
+                        const currentHistory = child.points_history || [];
 
                         updatedChild = await awardPointsAndLog(
                             child.id, 
@@ -314,51 +318,70 @@
             const [loading, setLoading] = React.useState(false);
 
             const handleRegister = async () => {
+                // Ensure phone number is used for primary lookup
                 if (!data.name || !data.phone || !data.parent) return setAlert("من فضلك املأ كل البيانات يا جوري!");
                 setLoading(true);
                 try {
-                    const { data: existing } = await supabase.from('children').select('id').eq('phone', data.phone).maybeSingle();
+                    // Check for existing phone number
+                    const { data: existing, error: existError } = await supabase.from('children').select('id').eq('phone', data.phone).maybeSingle();
+                    
+                    if (existError && existError.code !== 'PGRST116') throw existError; // Check for a real error other than no rows found
+                    
                     if (existing) {
                         setAlert("هذا الهاتف مسجل لحساب آخر. يرجى استخدام 'دخول لحساب موجود'.");
                         setLoading(false);
                         return;
                     }
 
+                    // Attempt to insert new child
+                    // IMPORTANT: Removed points_history and unlocked_issues from INSERT/SELECT to avoid missing column errors
                     const { data: child, error } = await supabase.from('children').insert([{ 
-                        full_name: data.name, phone: data.phone, parent_phone: data.parent, grade: data.grade, points: 0, points_history: [], unlocked_issues: []
-                    }]).select('id, full_name, phone, parent_phone, grade, points, unlocked_issues, points_history').single();
+                        full_name: data.name, phone: data.phone, parent_phone: data.parent, grade: data.grade, points: 0
+                    }]).select('id, full_name, phone, parent_phone, grade, points').single(); // Simplified Select
                     
                     if (error) throw error;
                     
                     localStorage.setItem('bejouri_child_id', JSON.stringify({ id: child.id }));
-                    onAuthSuccess(child);
+                    onAuthSuccess(child); // Update state to dismiss modal
                     setAlert("تم التسجيل والدخول بنجاح! 🎉", 'success');
 
-                } catch (e) { setAlert(t.dataError); }
-                setLoading(false);
+                } catch (e) { 
+                    console.error("Registration error:", e);
+                    setAlert(t.dataError); 
+                } finally {
+                    setLoading(false);
+                }
             };
 
             const handleLogin = async () => {
                 if (!data.phone) return setAlert("من فضلك أدخل رقم الهاتف!");
                 setLoading(true);
                 try {
+                    // IMPORTANT: Removed points_history and unlocked_issues from SELECT to avoid missing column errors
                     const { data: child, error } = await supabase.from('children')
-                        .select('id, full_name, phone, parent_phone, grade, points, unlocked_issues, points_history') 
+                        .select('id, full_name, phone, parent_phone, grade, points') 
                         .eq('phone', data.phone)
                         .maybeSingle(); 
                     
-                    if (error || !child) {
+                    // Check if entry exists
+                    if (error && error.code !== 'PGRST116') throw error; // Check for a real error
+                    
+                    if (!child) {
                         setAlert(t.loginError);
                         setLoading(false);
-                        return;
+                        return; 
                     }
                     
                     localStorage.setItem('bejouri_child_id', JSON.stringify({ id: child.id }));
-                    onAuthSuccess(child);
+                    onAuthSuccess(child); // Update state to dismiss modal
                     setAlert("تم الدخول بنجاح! 👋", 'success');
 
-                } catch (e) { setAlert(t.dataError); }
-                setLoading(false);
+                } catch (e) { 
+                    console.error("Login error:", e);
+                    setAlert(t.dataError); 
+                } finally {
+                    setLoading(false);
+                }
             };
 
             return (
@@ -708,8 +731,9 @@
 
             const fetchChildData = React.useCallback(async (childId) => {
                 try {
+                    // IMPORTANT: Only select safe columns (without unlocked_issues/points_history) to ensure stable fetching
                     const { data: childData, error } = await supabase.from('children')
-                        .select('id, full_name, phone, parent_phone, grade, points, unlocked_issues, points_history')
+                        .select('id, full_name, phone, parent_phone, grade, points') 
                         .eq('id', childId)
                         .maybeSingle(); 
                     if (error || !childData) throw error;
@@ -732,7 +756,7 @@
                     // Fetch Settings
                     try {
                         const { data: settingsData } = await supabase.from('settings').select('value').eq('key', 'config').maybeSingle();
-                        if (settingsData) {
+                        if (settingsData && settingsData.value) {
                             settings = settingsData.value;
                             setAppBg(`url("${settings.appBackground || ''}")`);
                             setAppLogo(settings.appLogo || '');
@@ -750,6 +774,7 @@
 
                     // Fetch Issues (optimized)
                     try {
+                        // IMPORTANT: Only select safe columns (without unlocked_issues/points_history) to ensure stable fetching
                         const { data: issuesData } = await supabase.from('issues')
                             .select('id, title, date, is_free, background, verse, magazine_url, videos') 
                             .order('created_at', { ascending: false });
