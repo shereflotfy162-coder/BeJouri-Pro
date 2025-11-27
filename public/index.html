@@ -7,14 +7,14 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4338ca">
     
-    <!-- React & Tailwind -->
+    <!-- ⚠️ التخفيف من حجم التحميل الأولي: تم إبقاء المكتبات الضرورية فقط -->
+    <!-- هذه المكتبات يتم تحميلها في كل مرة وتساهم في الـ 12.3 MB -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- تم الإبقاء على Babel Standalone لأنه ضروري لتشغيل الكود الحالي، ولكن يفضل إزالته باستخدام Webpack -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    
-    <!-- ✅ مكتبة Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- Fonts -->
