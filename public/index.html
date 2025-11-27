@@ -7,14 +7,14 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4338ca">
     
-    <!-- ⚠️ التخفيف من حجم التحميل الأولي: تم إبقاء المكتبات الضرورية فقط -->
-    <!-- هذه المكتبات يتم تحميلها في كل مرة وتساهم في الـ 12.3 MB -->
+    <!-- React & Tailwind -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- تم الإبقاء على Babel Standalone لأنه ضروري لتشغيل الكود الحالي، ولكن يفضل إزالته باستخدام Webpack -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <!-- ✅ مكتبة Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- Fonts -->
@@ -683,6 +683,17 @@
                     {alertMessage && <MessageModal message={alertMessage} onClose={() => setAlertMessage(null)} type={alertType} />}
                 </ChildContext.Provider>
             );
+            
+            // 💡 مكون زر "الكتاب العجيب" القابل للنقل
+            const FriendsBookButton = (
+                <button 
+                    onClick={() => setShowFriends(true)} 
+                    className="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-3 py-1 rounded-lg font-bold text-xs transition hover:scale-105 flex items-center gap-1 shadow-md w-fit"
+                >
+                    <span className="text-base">📖</span>
+                    <span className="inline">{t.friendsBook}</span>
+                </button>
+            );
 
             return (
                 <div className="min-h-screen relative text-gray-900 dark:text-white font-sans transition-colors duration-300">
@@ -691,11 +702,12 @@
                     {/* خلفية التطبيق - تعتمد على المتغير appBg الذي يتم سحبه من Supabase */}
                     <div className="app-bg" style={{ backgroundImage: appBg || 'none', backgroundColor: appBg ? 'transparent' : '#f8fafc' }}></div>
                     
+                    {/* شريط الأدوات العلوي */}
                     <div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md p-4 shadow-sm flex justify-between items-center rounded-b-2xl mx-2 mt-2">
                         <div className="flex items-center gap-4">
                             {appLogo && <img src={appLogo} alt="Logo" className="h-20 w-20 object-contain drop-shadow-md" />}
                             <div>
-                                {/* ✅ عرض اسم الطفل ونقاطه */}
+                                {/* ✅ عرض اسم الطفل وعنوان المجلة */}
                                 {child ? (
                                     <div className="flex flex-col">
                                         <span className="text-lg font-black text-indigo-700 dark:text-indigo-300">أهلاً، {child.full_name.split(' ')[0]} 👋</span>
@@ -709,18 +721,16 @@
                                 )}
                             </div>
                         </div>
+                        {/* ⚠️ الموقع الأصلي لزر الكتاب العجيب (يظهر فقط على الشاشات الكبيرة) */}
                         <div className="flex gap-2 items-center">
-                            {/* 💡 رسالة فشل المفاتيح */}
                             {allKeysFailed && (
                                 <div className="animate-pulsered rounded-full px-2 py-1 text-xs font-bold text-white shadow-lg">⚠️ Key Error</div>
                             )}
                             
-                            {/* ✅ التعديل هنا ليتناسب مع الجوال */}
-                            <button onClick={() => setShowFriends(true)} className="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-3 py-1 rounded-lg font-bold text-xs transition hover:scale-105 flex items-center gap-1 shadow-md">
-                                <span className="text-base">📖</span>
-                                {/* النص يظهر فقط على الشاشات الكبيرة (sm) */}
-                                <span className="hidden sm:inline">{t.friendsBook}</span>
-                            </button>
+                            {/* **التحكم في ظهور زر الكتاب العجيب:** يظهر هنا فقط على الديسكتوب (sm:inline-flex) ويختفي في الموبايل (hidden) */}
+                            <div className="hidden sm:inline-flex">
+                                {FriendsBookButton}
+                            </div>
                             
                             <button onClick={toggleLang} className="bg-gray-100 dark:bg-gray-800 dark:text-white px-3 py-1 rounded-lg font-bold text-xs transition hover:scale-105 shadow-md">{t.langBtn}</button>
                             <button onClick={toggleTheme} className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center shadow transition hover:scale-105 text-xl">{theme === 'light' ? '☀️' : '🌙'}</button>
@@ -728,6 +738,13 @@
                     </div>
 
                     <div className="p-4 space-y-4 pb-20 relative z-0">
+                        
+                        {/* 💡 الموقع الجديد لزر "الكتاب العجيب" في الموبايل */}
+                        {/* **التحكم في ظهور زر الكتاب العجيب:** يظهر فقط في الموبايل (sm:hidden) ويختفي في الديسكتوب */}
+                        <div className="sm:hidden flex justify-center py-2">
+                             {FriendsBookButton}
+                        </div>
+                        
                         {issues.length > 0 && issues[0].verse && issues[0].verse.text && (
                             <div className="animate-fade-in my-8">
                                 <div className="flex items-start gap-3 relative">
