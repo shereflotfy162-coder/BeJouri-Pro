@@ -31,7 +31,7 @@
                         fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } }, 
                         popIn: { '0%': { opacity: '0', transform: 'scale(0.5)' }, '100%': { opacity: '1', transform: 'scale(1)' } },
                         float: { '0%': { transform: 'translateY(0px)' }, '50%': { transform: 'translateY(-10px)' }, '100%': { transform: 'translateY(0px)' } },
-                        pulsered: { '0%, 100%': { backgroundColor: 'rgba(239, 68, 68, 1)' }, '50%': { backgroundColor: 'rgba(239, 68, 68, 0.5)' } } // إضافة keyframe هنا
+                        pulsered: { '0%, 100%': { backgroundColor: 'rgba(239, 68, 68, 1)' }, '50%': { backgroundColor: 'rgba(239, 68, 68, 0.5)' } } 
                     } 
                 } 
             } 
@@ -154,7 +154,7 @@
                 for (let i = 0; i < keys.length; i++) {
                     const checkIndex = (currentIndex + i) % keys.length;
                     const keyObj = keys[checkIndex];
-                    if (keyObj.status !== 'failed' && keyObj.status !== 'network_failed') {
+                    if (keyObj.status !== 'failed' && keyObj.status !== 'network_failed' && !(keyObj.expires && new Date(keyObj.expires) < new Date())) {
                         nextIndex = checkIndex;
                         keyFound = true;
                         break;
@@ -170,17 +170,6 @@
                 const currentKeyObj = keys[currentIndex];
                 const apiKey = currentKeyObj?.key;
 
-                // 1. تحقق من مدة الانتهاء
-                if (currentKeyObj.expires && new Date(currentKeyObj.expires) < new Date()) {
-                    console.warn(`Key at index ${currentIndex} expired. Rotating key.`);
-                    currentKeyObj.status = 'expired'; 
-                    setAiKeys([...keys]); 
-                    // لا نكسر الحلقة، بل نحاول المفتاح التالي
-                    currentIndex = (currentIndex + 1) % keys.length;
-                    setActiveKeyIndex(currentIndex);
-                    continue; 
-                }
-                
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
                 try {
@@ -725,7 +714,14 @@
                             {allKeysFailed && (
                                 <div className="animate-pulsered rounded-full px-2 py-1 text-xs font-bold text-white shadow-lg">⚠️ Key Error</div>
                             )}
-                            <button onClick={() => setShowFriends(true)} className="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-3 py-1 rounded-lg font-bold text-xs transition hover:scale-105 flex items-center gap-1 shadow-md"><span className="text-base">📖</span><span className="hidden sm:inline">{t.friendsBook}</span></button>
+                            
+                            {/* ✅ التعديل هنا ليتناسب مع الجوال */}
+                            <button onClick={() => setShowFriends(true)} className="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-3 py-1 rounded-lg font-bold text-xs transition hover:scale-105 flex items-center gap-1 shadow-md">
+                                <span className="text-base">📖</span>
+                                {/* النص يظهر فقط على الشاشات الكبيرة (sm) */}
+                                <span className="hidden sm:inline">{t.friendsBook}</span>
+                            </button>
+                            
                             <button onClick={toggleLang} className="bg-gray-100 dark:bg-gray-800 dark:text-white px-3 py-1 rounded-lg font-bold text-xs transition hover:scale-105 shadow-md">{t.langBtn}</button>
                             <button onClick={toggleTheme} className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center shadow transition hover:scale-105 text-xl">{theme === 'light' ? '☀️' : '🌙'}</button>
                         </div>
