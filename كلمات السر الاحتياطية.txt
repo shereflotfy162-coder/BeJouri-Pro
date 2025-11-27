@@ -9,3 +9,8 @@ Jesus#Love
 StMary@Pray
 
 firebase deploy --only hosting
+
+
+git add .
+git commit -m "Fix dashboard settings and delete feature"
+git push
