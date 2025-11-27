@@ -26,12 +26,12 @@
             theme: { 
                 extend: { 
                     fontFamily: { sans: ['Cairo'], en: ['Fredoka'] },
-                    animation: { 'fade-in': 'fadeIn 0.5s ease-out', 'pop-in': 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' },
+                    animation: { 'fade-in': 'fadeIn 0.5s ease-out', 'pop-in': 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', 'pulsered': 'pulsered 1.5s infinite' },
                     keyframes: { 
                         fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } }, 
                         popIn: { '0%': { opacity: '0', transform: 'scale(0.5)' }, '100%': { opacity: '1', transform: 'scale(1)' } },
                         float: { '0%': { transform: 'translateY(0px)' }, '50%': { transform: 'translateY(-10px)' }, '100%': { transform: 'translateY(0px)' } },
-                        pulsered: { '0%, 100%': { backgroundColor: 'rgba(239, 68, 68, 1)' }, '50%': { backgroundColor: 'rgba(239, 68, 68, 0.5)' } }
+                        pulsered: { '0%, 100%': { backgroundColor: 'rgba(239, 68, 68, 1)' }, '50%': { backgroundColor: 'rgba(239, 68, 68, 0.5)' } } // إضافة keyframe هنا
                     } 
                 } 
             } 
@@ -59,13 +59,12 @@
 
     <script type="text/babel">
         // ✅ بيانات Supabase والتهيئة الثابتة في النطاق العالمي
-        // تم إصلاح مشكلة عدم قراءة الدالة عبر التأكد من التهيئة في النطاق الخارجي
         const SUPABASE_URL = "https://ozdnyepxfcjzldpkteau.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZG55ZXB4ZmNqemxkcGt0ZWF1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDEwNTM3MiwiZXhwIjoyMDc5NjgxMzcyfQ.mtqFcdRZeidpC0Ul8r_8FJOJalToT4lZeHNqd3-fsOg";
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
-        // ⚠️ مفتاح Gemini API
-        const GEMINI_API_KEY = "AIzaSyCSRAhs1Kb2zqxE8uLWAMT6osjXOLIyxGw"; 
+        // ⚠️ مفتاح Gemini API - لم يعد يُستخدم مباشرة، سيتم إدارته من خلال المصفوفة في Supabase
+        // **ملاحظة: إذا لم تقم بإضافة المفاتيح في لوحة التحكم، لن يعمل الذكاء الاصطناعي.**
 
         const TRANSLATIONS = {
             ar: {
@@ -86,7 +85,8 @@
                 friendsBook: "الكتاب العجيب 📖",
                 regTitle: "تسجيل بيانات جوري 🌹", regName: "اسمك بالكامل (ثلاثي)", regPhone: "رقم تليفونك", regParent: "رقم بابا أو ماما", regGrade: "أنت في سنة كام؟", regBtn: "سجل وادخل يا جوري 🚀",
                 apiError: "حدث خطأ في الاتصال بالذكاء الاصطناعي.",
-                dataError: "خطأ في تسجيل البيانات."
+                dataError: "خطأ في تسجيل البيانات.",
+                keysFailed: "تم استنفاذ جميع مفاتيح الذكاء الاصطناعي! ⚠️ يرجى تحديثها في لوحة التحكم (الداشبورد)."
             },
             en: {
                 appTitle: "BeJouri", subTitle: "Church Heroes", loading: "Loading...",
@@ -106,7 +106,8 @@
                 friendsBook: "Wonder Book 📖",
                 regTitle: "Jouri Registration 🌹", regName: "Full Name", regPhone: "Your Phone", regParent: "Parent Phone", regGrade: "Grade", regBtn: "Register & Enter 🚀",
                 apiError: "AI connection error.",
-                dataError: "Data registration error."
+                dataError: "Data registration error.",
+                keysFailed: "All AI keys are exhausted! ⚠️ Please update them in the Dashboard."
             }
         };
 
@@ -131,30 +132,107 @@
             } catch (e) { return { success: false, error: "NET_ERROR" }; }
         }
 
-        async function callGemini(prompt) {
-            if (!GEMINI_API_KEY) throw new Error("API_KEY_MISSING");
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`;
-            for (let attempt = 0; attempt < 4; attempt++) {
+        // ⚠️ دالة callGemini الجديدة التي تتعامل مع دوران المفاتيح
+        // تتلقى المفاتيح والحالة من مكون App لإدارة الدوران
+        const callGemini = async (prompt, aiKeys, activeKeyIndex, setActiveKeyIndex, setAiKeys, setAllKeysFailed) => {
+            let keys = [...aiKeys];
+            let startingIndex = activeKeyIndex;
+            let currentIndex = startingIndex;
+            const maxAttempts = keys.length || 1;
+
+            // إذا لم يتم إدخال مفاتيح بعد، نفشل على الفور
+            if (keys.length === 0) {
+                 throw new Error("API_KEY_MISSING");
+            }
+            
+            // Outer loop for rotation attempts (max one full cycle)
+            for (let attempts = 0; attempts < maxAttempts; attempts++) {
+                
+                // البحث عن المفتاح التالي غير الفاشل (بدءًا من currentIndex)
+                let keyFound = false;
+                let nextIndex = currentIndex;
+                for (let i = 0; i < keys.length; i++) {
+                    const checkIndex = (currentIndex + i) % keys.length;
+                    const keyObj = keys[checkIndex];
+                    if (keyObj.status !== 'failed' && keyObj.status !== 'network_failed') {
+                        nextIndex = checkIndex;
+                        keyFound = true;
+                        break;
+                    }
+                }
+                
+                if (!keyFound) {
+                    // لم نجد أي مفتاح صالح في المصفوفة الحالية
+                    break; 
+                }
+
+                currentIndex = nextIndex;
+                const currentKeyObj = keys[currentIndex];
+                const apiKey = currentKeyObj?.key;
+
+                // 1. تحقق من مدة الانتهاء
+                if (currentKeyObj.expires && new Date(currentKeyObj.expires) < new Date()) {
+                    console.warn(`Key at index ${currentIndex} expired. Rotating key.`);
+                    currentKeyObj.status = 'expired'; 
+                    setAiKeys([...keys]); 
+                    // لا نكسر الحلقة، بل نحاول المفتاح التالي
+                    currentIndex = (currentIndex + 1) % keys.length;
+                    setActiveKeyIndex(currentIndex);
+                    continue; 
+                }
+                
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
                 try {
                     const response = await fetch(url, { 
                         method: 'POST', 
                         headers: { 'Content-Type': 'application/json' }, 
                         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) 
                     });
+
                     if (response.ok) {
-                        const data = await response.json();
-                        return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response";
+                        // النجاح: تحديث المفتاح النشط والحالة
+                        setActiveKeyIndex(currentIndex);
+                        setAllKeysFailed(false); 
+                        return (await response.json()).candidates?.[0]?.content?.parts?.[0]?.text || "No response";
                     }
-                    if (response.status === 429 && attempt < 3) {
-                        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-                        continue;
-                    }
-                    throw new Error("API Error: " + response.status);
+                    
+                    // فشل API (مثل 400, 429, 500)
+                    console.warn(`API Call failed for key at index ${currentIndex} with status ${response.status}. Rotating key.`);
+                    
+                    // تحديث حالة المفتاح الفاشل محلياً
+                    currentKeyObj.status = 'failed'; 
+                    setAiKeys([...keys]);
+                    
+                    // الانتقال للمفتاح التالي
+                    currentIndex = (currentIndex + 1) % keys.length;
+                    setActiveKeyIndex(currentIndex);
+
+                    await new Promise(resolve => setTimeout(resolve, 500)); 
+
                 } catch (e) {
-                    if (attempt === 3) throw e;
+                    // فشل شبكة (CORS, Offline, إلخ)
+                    console.error(`Network error for key ${currentIndex}:`, e);
+                    
+                    currentKeyObj.status = 'network_failed'; 
+                    setAiKeys([...keys]);
+                    
+                    currentIndex = (currentIndex + 1) % keys.length;
+                    setActiveKeyIndex(currentIndex);
+
+                    await new Promise(resolve => setTimeout(resolve, 500)); 
+                }
+
+                 // إذا عدنا إلى نقطة البداية، نتوقف
+                if (currentIndex === startingIndex) {
+                     break;
                 }
             }
-        }
+            
+            // إذا انتهت الحلقة دون نجاح، نفشل كلياً
+            setAllKeysFailed(true);
+            throw new Error("ALL_KEYS_FAILED");
+        };
 
         function MessageModal({ message, onClose, type = 'error' }) {
             let icon, color;
@@ -236,7 +314,7 @@
             );
         }
         
-        function StoryView({ t, setAlert }) {
+        function StoryView({ t, setAlert, aiCall }) { // ✅ تحديث: استقبال aiCall
             const [topic, setTopic] = React.useState("");
             const [story, setStory] = React.useState("");
             const [loading, setLoading] = React.useState(false);
@@ -244,17 +322,17 @@
                 if(!topic) return setAlert("من فضلك اكتب فكرة القصة أولاً!");
                 setLoading(true);
                 try { 
-                    const text = await callGemini(`Write a short story for Christian children in Egyptian Arabic about: "${topic}".`); 
+                    const text = await aiCall(`Write a short story for Christian children in Egyptian Arabic about: "${topic}".`); // ✅ استخدام aiCall
                     setStory(text); 
                 } catch(e) { 
-                    if (e.message.includes("API_KEY_MISSING")) setAlert("لم يتم تفعيل الذكاء الاصطناعي. الرجاء إدخال مفتاح Gemini API.", 'warning');
+                    if (e.message.includes("API_KEY_MISSING") || e.message.includes("ALL_KEYS_FAILED")) setAlert(t.keysFailed, 'warning'); // ✅ رسالة خطأ المفاتيح
                     else setAlert(t.apiError); 
                 } 
                 setLoading(false);
             };
             return (
                 <div className="h-full flex flex-col p-6 bg-indigo-50 dark:bg-gray-900 overflow-y-auto">
-                     {!story ? (
+                    {!story ? (
                         <div className="flex flex-col items-center justify-center h-full text-center">
                             <div className="text-6xl mb-4">📚</div><h2 className="text-2xl font-bold mb-6 dark:text-white">{t.storySetup}</h2>
                             <input value={topic} onChange={e=>setTopic(e.target.value)} placeholder={t.storyPrompt} className="w-full max-w-sm p-4 rounded-xl shadow-sm border-2 border-indigo-100 mb-4 text-center text-lg" />
@@ -270,7 +348,7 @@
             );
         }
 
-        function ActivitiesView({ t, setAlert }) {
+        function ActivitiesView({ t, setAlert, aiCall }) { // ✅ تحديث: استقبال aiCall
             const [mode, setMode] = React.useState('menu'); 
             const [data, setData] = React.useState(null); 
             const [input, setInput] = React.useState(""); 
@@ -282,13 +360,13 @@
                 setFeedback(""); 
                 setInput("");
                 try { 
-                    const rawText = await callGemini(`Generate a riddle in Arabic about a Coptic Saint. Return ONLY the JSON object: { "riddle": "...", "answer": "..." }. Ensure the answer is the saint's name only.`); 
+                    const rawText = await aiCall(`Generate a riddle in Arabic about a Coptic Saint. Return ONLY the JSON object: { "riddle": "...", "answer": "..." }. Ensure the answer is the saint's name only.`); // ✅ استخدام aiCall
                     const cleanText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
                     const json = JSON.parse(cleanText); 
                     setData(json); 
                 } catch(e) { 
                     console.error(e);
-                    if (e.message.includes("API_KEY_MISSING")) setAlert("لم يتم تفعيل الذكاء الاصطناعي. الرجاء إدخال مفتاح Gemini API.", 'warning');
+                    if (e.message.includes("API_KEY_MISSING") || e.message.includes("ALL_KEYS_FAILED")) setAlert(t.keysFailed, 'warning'); // ✅ رسالة خطأ المفاتيح
                     else setAlert(t.apiError); 
                     setMode('menu'); 
                 } 
@@ -299,13 +377,13 @@
                 if(!input || !data) return; 
                 setLoading(true);
                 try { 
-                    const rawText = await callGemini(`Answer: "${data.answer}". Guess: "${input}". Are they the same person? Return ONLY the JSON object: { "correct": true/false }. Be lenient with minor spelling differences.`); 
+                    const rawText = await aiCall(`Answer: "${data.answer}". Guess: "${input}". Are they the same person? Return ONLY the JSON object: { "correct": true/false }. Be lenient with minor spelling differences.`); // ✅ استخدام aiCall
                     const cleanText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
                     const json = JSON.parse(cleanText); 
                     setFeedback(json.correct ? "correct" : "wrong"); 
                 } catch(e) { 
                     setFeedback("wrong"); 
-                    if (e.message.includes("API_KEY_MISSING")) setAlert("لم يتم تفعيل الذكاء الاصطناعي. الرجاء إدخال مفتاح Gemini API.", 'warning');
+                    if (e.message.includes("API_KEY_MISSING") || e.message.includes("ALL_KEYS_FAILED")) setAlert(t.keysFailed, 'warning'); // ✅ رسالة خطأ المفاتيح
                     else setAlert(t.apiError); 
                 } 
                 setLoading(false);
@@ -315,10 +393,10 @@
                 if(!input) return setAlert("من فضلك اكتب موضوع الصلاة أولاً!");
                 setLoading(true); 
                 try { 
-                    const text = await callGemini(`Write a short Coptic prayer in formal Arabic about the topic: "${input}".`); 
+                    const text = await aiCall(`Write a short Coptic prayer in formal Arabic about the topic: "${input}".`); // ✅ استخدام aiCall
                     setData(text); 
                 } catch(e) { 
-                    if (e.message.includes("API_KEY_MISSING")) setAlert("لم يتم تفعيل الذكاء الاصطناعي. الرجاء إدخال مفتاح Gemini API.", 'warning');
+                    if (e.message.includes("API_KEY_MISSING") || e.message.includes("ALL_KEYS_FAILED")) setAlert(t.keysFailed, 'warning'); // ✅ رسالة خطأ المفاتيح
                     else setAlert(t.apiError); 
                 } 
                 setLoading(false);
@@ -373,7 +451,7 @@
             );
         }
 
-        function IssueDetail({ issue, onBack, t, setAlert }) {
+        function IssueDetail({ issue, onBack, t, setAlert, aiCall }) { // ✅ تحديث: استقبال aiCall
             const [tab, setTab] = React.useState("mag");
             const [child, setChild] = React.useContext(ChildContext);
 
@@ -397,9 +475,9 @@
                         {/* عرض الفيديوهات */}
                         {tab === 'video' && <div className="h-full overflow-y-auto p-4 space-y-4">{issue.videos && issue.videos.map((v, i) => (<div key={i} className="bg-white dark:bg-gray-800 p-2 rounded-xl shadow"><div className="aspect-video bg-black"><iframe src={getYoutubeEmbed(v.url)} className="w-full h-full"></iframe></div></div>))}</div>}
                         {/* عرض القصص */}
-                        {tab === 'story' && <StoryView t={t} setAlert={setAlert} />}
+                        {tab === 'story' && <StoryView t={t} setAlert={setAlert} aiCall={aiCall} />}
                         {/* عرض الأنشطة */}
-                        {tab === 'activities' && <ActivitiesView t={t} setAlert={setAlert} />}
+                        {tab === 'activities' && <ActivitiesView t={t} setAlert={setAlert} aiCall={aiCall} />}
                     </div>
                 </div>
             );
@@ -455,7 +533,7 @@
             const [loginError, setLoginError] = React.useState("");
             const [verifying, setVerifying] = React.useState(false);
             
-            // ✅ حالة الخلفية والشعار - تبدأ فارغة لتعتمد على بيانات Supabase
+            // ✅ حالة الخلفية والشعار
             const [appBg, setAppBg] = React.useState('');
             const [appLogo, setAppLogo] = React.useState('');
             
@@ -472,24 +550,30 @@
             const [isLoginEnabled, setIsLoginEnabled] = React.useState(false);
             const [alertMessage, setAlertMessage] = React.useState(null);
             const [alertType, setAlertType] = React.useState('error');
+
+            // 💡 مفاتيح الذكاء الاصطناعي والدوران (Key Pool Management)
+            const [aiKeys, setAiKeys] = React.useState([]);
+            const [activeKeyIndex, setActiveKeyIndex] = React.useState(0);
+            const [allKeysFailed, setAllKeysFailed] = React.useState(false);
             
             const setAppAlert = (message, type = 'error') => {
                 setAlertMessage(message);
                 setAlertType(type);
             }
 
-            const handleReflection = async (verse) => { 
+            // 💡 دالة التأمل تستخدم الآن وظيفة aiCall التي تدير المفاتيح
+            const handleReflection = React.useCallback(async (verse, aiCall) => { 
                 setReflecting(true); 
                 setReflection("");
                 try { 
-                    const text = await callGemini(`Write a short Coptic contemplation/reflection for a child in Arabic based on the Bible verse: "${verse}"`); 
+                    const text = await aiCall(`Write a short Coptic contemplation/reflection for a child in Arabic based on the Bible verse: "${verse}"`); 
                     setReflection(text); 
                 } catch(e) { 
-                    if (e.message.includes("API_KEY_MISSING")) setAppAlert("لم يتم تفعيل الذكاء الاصطناعي. الرجاء إدخال مفتاح Gemini API.", 'warning');
-                    else setAppAlert(t.apiError); 
+                    if (e.message.includes("API_KEY_MISSING") || e.message.includes("ALL_KEYS_FAILED")) setAppAlert(TRANSLATIONS[lang].keysFailed, 'warning');
+                    else setAppAlert(TRANSLATIONS[lang].apiError); 
                 } 
                 setReflecting(false); 
-            };
+            }, [lang]);
 
             const t = TRANSLATIONS[lang];
 
@@ -504,11 +588,20 @@
                     try {
                         const { data: settings } = await supabase.from('settings').select('value').eq('key', 'config').single();
                         if (settings) {
-                            // ✅ تحديث الخلفية والشعار من الروابط المخزنة في Supabase
+                            // ✅ تحديث الخلفية والشعار ومصفوفة المفاتيح
                             if (settings.value.appBackground) setAppBg(`url("${settings.value.appBackground}")`);
                             if (settings.value.appLogo) setAppLogo(settings.value.appLogo);
                             if (settings.value.enableChildLogin) setIsLoginEnabled(true); 
                             setIntroData({ title: settings.value.introTitle, body: settings.value.introBody });
+                            
+                            // 💡 جلب المفاتيح وتجهيزها للاستخدام
+                            if (settings.value.gemini_keys_list && Array.isArray(settings.value.gemini_keys_list)) {
+                                // إضافة خاصية حالة (status) إذا لم تكن موجودة، وتعيينها لـ 'unused'
+                                const initialKeys = settings.value.gemini_keys_list.map(k => ({...k, status: k.status || 'unused'}));
+                                setAiKeys(initialKeys);
+                            } else {
+                                setAiKeys([]); // لا توجد مفاتيح
+                            }
                         }
                     } catch(e) { console.error("Failed to fetch settings:", e); }
 
@@ -520,6 +613,13 @@
                 };
                 fetchData();
             }, [lang, theme]);
+
+
+            // 💡 وظيفة aiCall تستخدم الآن المفاتيح المُحملة من Supabase
+            const aiCallWithKeys = React.useCallback(async (prompt) => {
+                return callGemini(prompt, aiKeys, activeKeyIndex, setActiveKeyIndex, setAiKeys, setAllKeysFailed);
+            }, [aiKeys, activeKeyIndex, setAiKeys, setActiveKeyIndex, setAllKeysFailed]);
+
 
             // ✅ نظام النبضات (10 دقائق) - معدل لربطه بالطفل المسجل
             React.useEffect(() => {
@@ -584,7 +684,13 @@
 
             if(view === "issue" && activeIssue) return (
                 <ChildContext.Provider value={[child, setChild]}>
-                    <IssueDetail issue={activeIssue} onBack={()=>setView("home")} t={t} setAlert={setAppAlert} />
+                    <IssueDetail 
+                        issue={activeIssue} 
+                        onBack={()=>setView("home")} 
+                        t={t} 
+                        setAlert={setAppAlert} 
+                        aiCall={aiCallWithKeys} // ✅ تمرير وظيفة الاتصال
+                    />
                     {alertMessage && <MessageModal message={alertMessage} onClose={() => setAlertMessage(null)} type={alertType} />}
                 </ChildContext.Provider>
             );
@@ -615,6 +721,10 @@
                             </div>
                         </div>
                         <div className="flex gap-2 items-center">
+                            {/* 💡 رسالة فشل المفاتيح */}
+                            {allKeysFailed && (
+                                <div className="animate-pulsered rounded-full px-2 py-1 text-xs font-bold text-white shadow-lg">⚠️ Key Error</div>
+                            )}
                             <button onClick={() => setShowFriends(true)} className="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-3 py-1 rounded-lg font-bold text-xs transition hover:scale-105 flex items-center gap-1 shadow-md"><span className="text-base">📖</span><span className="hidden sm:inline">{t.friendsBook}</span></button>
                             <button onClick={toggleLang} className="bg-gray-100 dark:bg-gray-800 dark:text-white px-3 py-1 rounded-lg font-bold text-xs transition hover:scale-105 shadow-md">{t.langBtn}</button>
                             <button onClick={toggleTheme} className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center shadow transition hover:scale-105 text-xl">{theme === 'light' ? '☀️' : '🌙'}</button>
@@ -630,7 +740,7 @@
                                         <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">{t.verseTitle}</h4>
                                         <p className="text-sm font-bold leading-relaxed text-gray-800 dark:text-gray-200">"{issues[0].verse.text}"</p>
                                         <div className="text-right text-xs text-gray-500 dark:text-gray-400 mt-2 font-bold">— {issues[0].verse.ref}</div>
-                                        <button onClick={()=>handleReflection(issues[0].verse.text)} className="mt-3 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full font-bold hover:bg-indigo-200 transition flex items-center gap-1">
+                                        <button onClick={()=>handleReflection(issues[0].verse.text, aiCallWithKeys)} className="mt-3 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full font-bold hover:bg-indigo-200 transition flex items-center gap-1">
                                             {reflecting ? "جاري التأمل..." : t.reflectBtn}
                                         </button>
                                     </div>
