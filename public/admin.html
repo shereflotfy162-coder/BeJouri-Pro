@@ -172,10 +172,34 @@
                 points: child.points 
             });
             const [loading, setLoading] = React.useState(false);
+            
+            // NOTE: The unlocked_issues and points_history columns might be missing.
+            // We fetch the data but avoid relying on its existence for the modal structure.
+            const [fullChildData, setFullChildData] = React.useState(child);
+
+            React.useEffect(() => {
+                // Fetch full child data including history when modal opens
+                const fetchFullData = async () => {
+                     try {
+                        // Attempt to select columns, will fail if they don't exist
+                        const { data: fullData } = await supabase.from('children')
+                            .select('id, points, points_history, unlocked_issues')
+                            .eq('id', child.id)
+                            .single();
+                        if (fullData) setFullChildData(fullData);
+                    } catch(e) {
+                         // Fallback if columns are missing
+                        console.warn("Could not fetch full child data (points_history/unlocked_issues might be missing):", e);
+                    }
+                };
+                fetchFullData();
+            }, [child.id]);
+
 
             const handleSave = async () => {
                 setLoading(true);
                 try {
+                    // Update only safe columns
                     const { error } = await supabase.from('children').update({
                         full_name: data.full_name,
                         phone: data.phone,
@@ -197,7 +221,8 @@
                 }
             };
             
-            const pointsHistory = child.points_history || [];
+            const pointsHistory = fullChildData?.points_history || [];
+            const unlockedIssues = fullChildData?.unlocked_issues || [];
 
             return (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
@@ -220,7 +245,7 @@
                                 <h3 className="text-lg font-bold text-indigo-800">سجل النقاط ({pointsHistory.length})</h3>
                                 <div className="bg-gray-50 p-3 rounded-xl max-h-64 overflow-y-auto border">
                                     {pointsHistory.length === 0 ? (
-                                        <p className="text-gray-500 text-center py-5">لا يوجد سجل نقاط لهذا الطفل.</p>
+                                        <p className="text-gray-500 text-center py-5">لا يوجد سجل نقاط لهذا الطفل. (أو الأعمدة مفقودة)</p>
                                     ) : (
                                         pointsHistory.map((log, index) => (
                                             <div key={index} className={`flex justify-between p-2 mb-1 rounded-lg ${log.points > 0 ? 'bg-green-100' : 'bg-red-100'}`}>
@@ -229,6 +254,20 @@
                                                 <span className="text-xs text-gray-500">{new Date(log.timestamp).toLocaleDateString('ar-EG')}</span>
                                             </div>
                                         ))
+                                    )}
+                                </div>
+                                <h3 className="text-lg font-bold text-indigo-800 mt-4">الأعداد المفتوحة ({unlockedIssues.length})</h3>
+                                <div className="bg-gray-50 p-3 rounded-xl max-h-20 overflow-y-auto border">
+                                    {unlockedIssues.length === 0 ? (
+                                        <p className="text-gray-500 text-center py-2 text-sm">لم يفتح أي عدد بعد. (أو الأعمدة مفقودة)</p>
+                                    ) : (
+                                        <div className="flex flex-wrap gap-2">
+                                            {unlockedIssues.map(issueId => (
+                                                <span key={issueId} className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                                                    #{issueId}
+                                                </span>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
                             </div>
@@ -258,7 +297,8 @@
                 if (!showChildrenDB) return;
                 const fetchChildren = async () => {
                     setLoadingChildren(true);
-                    const { data } = await supabase.from('children').select('*').order('points', { ascending: false });
+                    // IMPORTANT: Fetch only stable columns to prevent dashboard crash if points_history/unlocked_issues are missing
+                    const { data } = await supabase.from('children').select('id, full_name, phone, parent_phone, grade, points').order('points', { ascending: false });
                     if (data) setChildren(data);
                     setLoadingChildren(false);
                 };
@@ -288,7 +328,7 @@
                 
                 try {
                     setLoadingChildren(true);
-                    const { error } = await supabase.from('children').delete().not('id', 'is', null); // Use not('id', 'is', null) for bulk delete with service role key
+                    const { error } = await supabase.from('children').delete().not('id', 'is', null);
                     
                     if (error) throw error;
                     
@@ -344,6 +384,7 @@
 
             return (
                 <div className="space-y-8 animate-fade-in">
+                    {/* childToEdit will trigger a fetch of the full child data inside the modal */}
                     {childToEdit && <EditChildModal child={childToEdit} onClose={() => setChildToEdit(null)} refresh={refresh} />}
                     
                     <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6 no-print">
@@ -489,10 +530,13 @@
                 setIssueData({ id: '', title: '', date: '', magUrl: '', verseText: '', verseRef: '', isFree: false, backgroundUrl: '', backgroundFile: null, videos: [{ title: '', url: '' }] }); 
             };
 
+            // FIX: Ensure all required fields are present and handle insertion/update carefully.
             const saveIssue = async () => { 
                 setLoading(true); 
                 try { 
-                    if (!issueData.id || !issueData.title || !issueData.date) throw new Error("يجب كتابة رقم العدد، العنوان، والتاريخ."); 
+                    if (!issueData.id || !issueData.title || !issueData.date || !issueData.magUrl) {
+                        throw new Error("يجب كتابة رقم العدد، العنوان، التاريخ، ورابط المجلة.");
+                    }
 
                     let finalBgUrl = issueData.backgroundUrl;
                     
@@ -513,21 +557,28 @@
                     
                     let error; 
                     if (editingId) { 
+                        // Update
                         const { error: updateError } = await supabase.from('issues').update(issuePayload).eq('id', editingId); 
                         error = updateError; 
                     } else { 
+                        // Insert
                         issuePayload.id = issueData.id; 
                         const { error: insertError } = await supabase.from('issues').insert([issuePayload]); 
                         error = insertError; 
                     } 
-                    if (error) throw error; 
+                    
+                    if (error) {
+                        console.error('خطأ Supabase:', error.message);
+                        throw new Error(`فشل النشر/التعديل: ${error.message}`);
+                    } 
 
                     console.log(editingId ? 'تم التعديل بنجاح! ✅' : 'تم النشر بنجاح! ✅');
                     
                     cancelEdit(); 
                     refresh(); 
                 } catch (e) { 
-                    console.error('خطأ:', e.message); 
+                    console.error('خطأ عام:', e.message);
+                    alert(`فشل العملية: ${e.message}`); // Using alert to notify admin of critical failure
                 } finally { 
                     setLoading(false); 
                 } 
@@ -655,6 +706,7 @@
                     fetchVideos(); 
                 } catch (e) { 
                     console.error('خطأ:', e.message); 
+                    alert(`فشل الإضافة: ${e.message}`);
                 } finally { 
                     setLoading(false); 
                 } 
@@ -769,6 +821,7 @@
                     fetchCodesPreview(); 
                 } catch(e) { 
                     console.error('خطأ في التوليد:', e.message);
+                    alert(`فشل التوليد: ${e.message}`);
                 } finally { 
                     setLoading(false); 
                 } 
@@ -944,11 +997,16 @@
                     };
 
                     const { error } = await supabase.from('settings').upsert({ key: 'config', value: newVal });
-                    if (error) throw error;
+                    
+                    if (error) {
+                         console.error('خطأ في حفظ الإعدادات:', error.message);
+                         alert(`فشل الحفظ: ${error.message}`);
+                         throw error;
+                    } 
                     
                     adminPassword = newVal.adminPassword; internalPassword = newVal.internalPassword;
                     console.log('تم الحفظ بنجاح! ✅'); refresh();
-                } catch(e) { console.error('خطأ في الحفظ:', e.message); } finally { setLoading(false); }
+                } catch(e) { console.error('خطأ عام في الحفظ:', e.message); } finally { setLoading(false); }
             };
             
             return (
@@ -1052,19 +1110,14 @@
             const fetchInitialData = React.useCallback(async () => {
                 setLoading(true);
                 try {
-                    const { data: settingsData } = await supabase.from('settings').select('value').eq('key', 'config').single();
-                    if (settingsData) {
+                    const { data: settingsData } = await supabase.from('settings').select('value').eq('key', 'config').maybeSingle();
+                    if (settingsData?.value) {
                         setConfig(settingsData.value);
                         adminPassword = settingsData.value.adminPassword;
                         internalPassword = settingsData.value.internalPassword || "456"; 
                     } else {
-                        // Set default config if none is found
                         setConfig({
-                            adminPassword: "123",
-                            internalPassword: "456",
-                            enableChildLogin: false,
-                            enableInternalLock: false,
-                            gemini_keys_list: [{ key: 'DEFAULT_KEY', expires: null }]
+                            adminPassword: "123", internalPassword: "456", enableChildLogin: false, enableInternalLock: false, gemini_keys_list: []
                         });
                     }
 
@@ -1072,7 +1125,7 @@
                     if (error) console.error("Fetch issues error:", error);
                     if (issuesData) setIssues(issuesData);
                 } catch (e) { console.error("Error during initial data fetch:", e); } finally { setLoading(false); }
-            }, [refreshToggle]); // Dependency on refreshToggle
+            }, [refreshToggle]);
 
             React.useEffect(() => { 
                 fetchInitialData(); 
