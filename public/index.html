@@ -68,11 +68,11 @@
                 introTitle: "أهلاً بيك يا جوري! 👋", introBody: "مرحباً بك في تطبيق Beجوري.", introBtn: "ابدأ الرحلة 🚀",
                 score: "النتيجة", playAgain: "العب تاني 🔄",
                 actRiddle: "🧠 فوازير", riddleGen: "فزورة جديدة 🎲", riddlePlaceholder: "مين هو؟", riddleCheck: "تخمين ✅", riddleWrong: "للأسف غلط 😢", riddleCorrect: "إجابة صحيحة! 🎉",
-                friendsBook: "الكتاب العجيب 📖", joinFriends: "أصدقاء المجلة",
+                joinFriends: "أصدقاء المجلة",
                 apiError: "حدث خطأ في الاتصال بالذكاء الاصطناعي.",
                 keysFailed: "تم استنفاذ جميع مفاتيح الذكاء الاصطناعي! ⚠️",
                 contestTab: "🏆 المسابقة", contestSubmit: "تصحيح الإجابات ✅", contestResult: "نتيجة المسابقة",
-                activitiesTab: "✨ أنشطة", // ✅ Fixed name
+                activitiesTab: "✨ أنشطة",
                 storyTab: "✨ قصص",
                 reflectBtn: "✨ تأمل", reflectTitle: "تأمل في الآية"
             },
@@ -85,7 +85,7 @@
                 introTitle: "Welcome Jouri! 👋", introBody: "Welcome to BeJouri app.", introBtn: "Start Journey 🚀",
                 score: "Score", playAgain: "Play Again 🔄",
                 actRiddle: "🧠 Riddles", riddleGen: "New Riddle 🎲", riddlePlaceholder: "Who is it?", riddleCheck: "Guess ✅", riddleCorrect: "Correct! 🎉", riddleWrong: "Wrong 😢",
-                friendsBook: "Wonder Book 📖", joinFriends: "Friends of the Mag",
+                joinFriends: "Friends of the Mag",
                 apiError: "AI connection error.",
                 keysFailed: "All AI keys are exhausted! ⚠️",
                 contestTab: "🏆 Contest", contestSubmit: "Grade Answers ✅", contestResult: "Contest Result",
@@ -107,75 +107,51 @@
             try {
                 const cleanCode = code.trim().toUpperCase();
                 if(cleanCode === "ADMIN123") return { success: true };
-                
                 const { data: codeData, error } = await supabase.from('codes').select('*').eq('code', cleanCode).single();
-                
                 if (error || !codeData) return { success: false, error: "INVALID" };
                 if (String(codeData.issue_id) !== String(issueId)) return { success: false, error: "WRONG_ISSUE" };
                 if (codeData.used) return { success: false, error: "USED" };
-                
                 await supabase.from('codes').update({ used: true, used_at: new Date() }).eq('code', cleanCode);
                 return { success: true };
-            } catch (e) { 
-                console.error("Code check error:", e);
-                return { success: false, error: "NET_ERROR" }; 
-            }
+            } catch (e) { console.error("Code check error:", e); return { success: false, error: "NET_ERROR" }; }
         }
 
         const callGemini = async (prompt, aiKeys, activeKeyIndex, setActiveKeyIndex, setAiKeys, setAllKeysFailed) => {
             let keys = [...aiKeys];
             let startingIndex = activeKeyIndex;
             const maxAttempts = keys.length || 1;
-
             if (keys.length === 0) { throw new Error("API_KEY_MISSING"); }
-            
             for (let attempts = 0; attempts < maxAttempts; attempts++) {
                 let keyFound = false;
                 let currentIndex = startingIndex;
-                
                 for (let i = 0; i < keys.length; i++) {
                     const checkIndex = (startingIndex + i) % keys.length;
                     const keyObj = keys[checkIndex];
-                    if (keyObj.status !== 'failed') {
-                        currentIndex = checkIndex;
-                        keyFound = true;
-                        break;
-                    }
+                    if (keyObj.status !== 'failed') { currentIndex = checkIndex; keyFound = true; break; }
                 }
-                
                 if (!keyFound) { break; }
-
                 const currentKeyObj = keys[currentIndex];
                 const apiKey = currentKeyObj?.key;
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-
                 try {
                     const response = await fetch(url, { 
-                        method: 'POST', 
-                        headers: { 'Content-Type': 'application/json' }, 
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, 
                         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) 
                     });
-
                     if (response.ok) {
-                        setActiveKeyIndex(currentIndex);
-                        setAllKeysFailed(false); 
+                        setActiveKeyIndex(currentIndex); setAllKeysFailed(false); 
                         return (await response.json()).candidates?.[0]?.content?.parts?.[0]?.text || "No response";
                     }
-                    console.warn(`API Call failed. Rotating key.`);
-                    currentKeyObj.status = 'failed'; 
-                    setAiKeys([...keys]);
-                    startingIndex = (currentIndex + 1) % keys.length;
+                    console.warn(`API Call failed. Rotating key.`); currentKeyObj.status = 'failed'; 
+                    setAiKeys([...keys]); startingIndex = (currentIndex + 1) % keys.length;
                     await new Promise(resolve => setTimeout(resolve, 500)); 
                 } catch (e) {
-                    console.error(`Network error:`, e);
-                    currentKeyObj.status = 'network_failed'; 
-                    setAiKeys([...keys]);
-                    startingIndex = (currentIndex + 1) % keys.length;
+                    console.error(`Network error:`, e); currentKeyObj.status = 'network_failed'; 
+                    setAiKeys([...keys]); startingIndex = (currentIndex + 1) % keys.length;
                     await new Promise(resolve => setTimeout(resolve, 500)); 
                 }
             }
-            setAllKeysFailed(true);
-            throw new Error("ALL_KEYS_FAILED");
+            setAllKeysFailed(true); throw new Error("ALL_KEYS_FAILED");
         };
 
         function MessageModal({ message, onClose, type = 'error' }) {
@@ -217,36 +193,23 @@
                 if (!data.name || !data.phone) return setAlert("من فضلك اكتب الاسم والرقم");
                 setLoading(true);
                 try {
-                    const { error } = await supabase.from('children').insert([{ 
-                        full_name: data.name, phone: data.phone, grade: data.grade, talent: data.talent, points: 0
-                    }]);
+                    const { error } = await supabase.from('children').insert([{ full_name: data.name, phone: data.phone, grade: data.grade, talent: data.talent, points: 0 }]);
                     if (error && error.code !== '23505') throw error;
-                    setAlert("تم تسجيل بياناتك بنجاح في أصدقاء المجلة! 🎉", 'success');
-                    localStorage.setItem('bejouri_friend_joined', 'true');
+                    setAlert("تم تسجيل بياناتك بنجاح! 🎉", 'success');
                     onClose();
-                } catch (e) { 
-                    setAlert("حدث خطأ بسيط، حاول مرة أخرى.");
-                } finally {
-                    setLoading(false);
-                }
+                } catch (e) { setAlert("حدث خطأ بسيط، حاول مرة أخرى."); } finally { setLoading(false); }
             };
 
             return (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-indigo-900/95 backdrop-blur-xl animate-fade-in">
                     <div className="bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl relative animate-pop-in border-4 border-yellow-400">
                         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl font-bold">✕</button>
-                        <div className="text-center mb-6">
-                            <div className="text-5xl mb-2">🤝</div>
-                            <h2 className="text-2xl font-black text-indigo-900">سجل في أصدقاء المجلة</h2>
-                            <p className="text-sm text-gray-500">مش إجباري، بس بنحب نعرف أصحابنا ❤️</p>
-                        </div>
+                        <div className="text-center mb-6"><div className="text-5xl mb-2">🤝</div><h2 className="text-2xl font-black text-indigo-900">سجل في أصدقاء المجلة</h2><p className="text-sm text-gray-500">مش إجباري، بس بنحب نعرف أصحابنا ❤️</p></div>
                         <div className="space-y-4">
                             <input value={data.name} onChange={e=>setData({...data, name: e.target.value})} placeholder="الاسم ثلاثي" className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 outline-none"/>
-                            <input type="tel" value={data.phone} onChange={e=>setData({...data, phone: e.target.value})} placeholder="رقم تليفونك أو رقم بابا/ماما" className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 outline-none"/>
-                            <select value={data.grade} onChange={e=>setData({...data, grade: e.target.value})} className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 outline-none">
-                                <option>الصف الأول الابتدائي</option><option>الصف الثاني الابتدائي</option><option>الصف الثالث الابتدائي</option><option>الصف الرابع الابتدائي</option><option>الصف الخامس الابتدائي</option><option>الصف السادس الابتدائي</option>
-                            </select>
-                            <input value={data.talent} onChange={e=>setData({...data, talent: e.target.value})} placeholder="موهبتك إيه؟ (رسم، ترنيم، شعر...)" className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 outline-none"/>
+                            <input type="tel" value={data.phone} onChange={e=>setData({...data, phone: e.target.value})} placeholder="رقم تليفونك" className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 outline-none"/>
+                            <select value={data.grade} onChange={e=>setData({...data, grade: e.target.value})} className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 outline-none"><option>الصف الأول الابتدائي</option><option>الصف الثاني الابتدائي</option><option>الصف الثالث الابتدائي</option><option>الصف الرابع الابتدائي</option><option>الصف الخامس الابتدائي</option><option>الصف السادس الابتدائي</option></select>
+                            <input value={data.talent} onChange={e=>setData({...data, talent: e.target.value})} placeholder="موهبتك إيه؟" className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 outline-none"/>
                             <button onClick={handleSubmit} disabled={loading} className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-4 rounded-xl font-black text-xl shadow-lg hover:scale-105 transition transform mt-2">{loading ? "جاري التسجيل..." : "سجل الآن 🚀"}</button>
                         </div>
                     </div>
@@ -254,25 +217,18 @@
             );
         }
 
-        // --- Contest Result Form Modal ---
         function ContestResultModal({ score, total, issueId, onClose, setAlert }) {
             const [data, setData] = React.useState({ name: '', phone: '' });
             const [loading, setLoading] = React.useState(false);
-
             const saveResult = async () => {
                 if(!data.name || !data.phone) return setAlert("اكتب اسمك ورقمك لحفظ النتيجة!");
                 setLoading(true);
                 try {
-                    await supabase.from('contest_submissions').insert([{
-                        issue_id: issueId, student_name: data.name, student_phone: data.phone, score: score, total: total
-                    }]);
+                    await supabase.from('contest_submissions').insert([{ issue_id: issueId, student_name: data.name, student_phone: data.phone, score: score, total: total }]);
                     setAlert("تم حفظ نتيجتك يا بطل! 🏆", 'success');
                     onClose();
-                } catch(e) {
-                    setAlert("خطأ في الحفظ، حاول تاني.");
-                } finally { setLoading(false); }
+                } catch(e) { setAlert("خطأ في الحفظ، حاول تاني."); } finally { setLoading(false); }
             };
-
             return (
                 <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center border-4 border-purple-500 animate-pop-in">
@@ -294,14 +250,30 @@
             const [input, setInput] = React.useState(""); 
             const [feedback, setFeedback] = React.useState(""); 
             const [loading, setLoading] = React.useState(false);
+            
+            // ✅ Load history from local storage
+            const [history, setHistory] = React.useState(JSON.parse(localStorage.getItem('bejouri_riddle_history') || '[]'));
 
             const generateRiddle = async () => {
                 setLoading(true); setFeedback(""); setInput("");
                 try { 
-                    const prompt = `You are a smart Sunday School teacher. Generate a NEW, UNIQUE, EASY riddle in Egyptian Arabic about a Coptic Saint or Bible character. Return ONLY JSON: { "riddle": "...", "answer": "..." }.`;
+                    // ✅ Updated Prompt: Exclude previous riddles
+                    const avoidList = history.slice(-20).join(", "); // Avoid last 20 answers
+                    const prompt = `You are a super intelligent, fun Sunday School teacher. 
+                    Generate a NEW, UNIQUE, and EASY riddle in Egyptian Arabic about a Coptic Saint, Bible character, or church object.
+                    CRITICAL: Do NOT generate riddles about: [${avoidList}].
+                    Return ONLY JSON: { "riddle": "...", "answer": "..." }.`;
+                    
                     const rawText = await aiCall(prompt);
-                    const cleanText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-                    setData(JSON.parse(cleanText)); 
+                    const parsedData = JSON.parse(rawText.replace(/```json/g, '').replace(/```/g, '').trim());
+                    
+                    setData(parsedData);
+                    
+                    // ✅ Update History
+                    const newHistory = [...history, parsedData.answer];
+                    setHistory(newHistory);
+                    localStorage.setItem('bejouri_riddle_history', JSON.stringify(newHistory));
+
                 } catch(e) { setAlert(t.apiError); setMode('menu'); } 
                 setLoading(false);
             };
@@ -310,7 +282,14 @@
                 if(!input || !data) return; 
                 setLoading(true);
                 try { 
-                    const prompt = `Model Answer: "${data.answer}". Student Guess: "${input}". Are they correct? Return ONLY JSON: { "correct": true/false }.`;
+                    // ✅ Updated Prompt: Flexible checking
+                    const prompt = `Act as a lenient teacher.
+                    Model Answer: "${data.answer}". 
+                    Student Guess: "${input}". 
+                    Is the guess correct? 
+                    RULES: Accept synonyms, partial names (e.g. "George" for "Saint George"), and minor spelling mistakes in Arabic.
+                    Return ONLY JSON: { "correct": true/false }.`;
+                    
                     const rawText = await aiCall(prompt);
                     const json = JSON.parse(rawText.replace(/```json/g, '').replace(/```/g, '').trim());
                     setFeedback(json.correct ? "correct" : "wrong");
@@ -318,33 +297,19 @@
                 setLoading(false);
             };
 
-            if(mode === 'menu') return (
-                <div className="h-full flex flex-col items-center justify-center p-6 gap-4">
-                    <button onClick={()=>{setMode('riddle'); generateRiddle();}} className="w-full max-w-xs p-6 bg-purple-500 rounded-2xl text-white font-black text-xl shadow-lg hover:bg-purple-600 transition transform hover:scale-105">{t.actRiddle}</button>
-                </div>
-            );
+            if(mode === 'menu') return <div className="h-full flex flex-col items-center justify-center p-6 gap-4"><button onClick={()=>{setMode('riddle'); generateRiddle();}} className="w-full max-w-xs p-6 bg-purple-500 rounded-2xl text-white font-black text-xl shadow-lg hover:bg-purple-600 transition transform hover:scale-105">{t.actRiddle}</button></div>;
             
             if(mode === 'riddle') return (
                 <div className="h-full flex flex-col p-6 text-center overflow-y-auto bg-gray-50 dark:bg-gray-900 relative overflow-hidden">
                     {feedback === 'correct' && <div className="absolute inset-0 pointer-events-none z-50 flex items-center justify-center">{[...Array(20)].map((_, i) => <div key={i} className="confetti" style={{left: `${Math.random()*100}%`, animationDuration:`${Math.random()*2+1}s`}}></div>)}</div>}
                     {feedback === 'wrong' && <div className="absolute inset-0 pointer-events-none z-50"><div className="absolute inset-0 bg-blue-900/20"></div>{[...Array(10)].map((_, i) => <div key={i} className="tear" style={{left: `${Math.random()*100}%`}}></div>)}</div>}
-
                     <button onClick={()=>setMode('menu')} className="self-start mb-4 text-indigo-600 dark:text-indigo-400 font-bold z-10 relative"><span className="transform rotate-180 inline-block">➜</span> العودة</button>
-                    
                     {loading && !data ? (<div className="flex flex-col items-center justify-center h-full"><span className="text-4xl animate-bounce">🎲</span><p className="mt-4 text-gray-500">{t.loading}</p></div>) : (
                         <div className="flex flex-col items-center z-10 relative w-full">
                             <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl mb-4 w-full border-2 border-purple-200"><p className="text-lg font-bold text-gray-800 dark:text-white leading-relaxed">{data?.riddle}</p></div>
-                            
-                            {feedback !== 'correct' && (
-                                <div className="flex gap-2 w-full max-w-md">
-                                    <input value={input} onChange={e=>setInput(e.target.value)} placeholder={t.riddlePlaceholder} className="flex-1 p-3 border-2 rounded-xl text-center outline-none dark:bg-gray-700 dark:text-white" />
-                                    <button onClick={checkRiddle} disabled={loading} className="bg-purple-600 text-white px-6 py-3 rounded-xl font-bold shadow-md hover:bg-purple-700 transition">{loading ? "..." : t.riddleCheck}</button>
-                                </div>
-                            )}
-
+                            {feedback !== 'correct' && (<div className="flex gap-2 w-full max-w-md"><input value={input} onChange={e=>setInput(e.target.value)} placeholder={t.riddlePlaceholder} className="flex-1 p-3 border-2 rounded-xl text-center outline-none dark:bg-gray-700 dark:text-white" /><button onClick={checkRiddle} disabled={loading} className="bg-purple-600 text-white px-6 py-3 rounded-xl font-bold shadow-md hover:bg-purple-700 transition">{loading ? "..." : t.riddleCheck}</button></div>)}
                             {feedback === 'correct' && <div className="mt-4 bg-green-100 p-6 rounded-3xl w-full max-w-md text-green-800 font-black animate-pop-in border-4 border-green-500 shadow-2xl"><div className="text-6xl mb-2 animate-bounce">🎉🏆</div>{t.riddleCorrect}</div>}
                             {feedback === 'wrong' && <div className="mt-4 bg-red-100 p-6 rounded-3xl w-full max-w-md text-red-800 font-bold animate-fade-in border-4 border-red-500 shadow-2xl">{t.riddleWrong}</div>}
-
                             <button onClick={generateRiddle} disabled={loading} className="mt-6 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 px-6 py-2 rounded-full font-bold shadow hover:bg-purple-200 transition">{loading ? t.loading : t.riddleGen}</button>
                         </div>
                     )}
@@ -352,7 +317,6 @@
             );
         }
 
-        // ✅ Contest View supports Options & Save Result
         function ContestView({ issue, t, setAlert, aiCall }) {
             const [userAnswers, setUserAnswers] = React.useState({});
             const [result, setResult] = React.useState(null);
@@ -365,21 +329,23 @@
                 if (Object.keys(userAnswers).length < questions.length) return setAlert("من فضلك جاوب على كل الأسئلة!");
                 setLoading(true);
                 try {
-                    let prompt = `Teacher grading quiz. Questions, model answers, student answers provided. Determine correctness.
+                    // ✅ Updated Prompt: Flexible grading
+                    let prompt = `Act as a smart, flexible teacher grading a quiz.
+                    Questions, Model Answers, Student Answers (Arabic) provided.
+                    GRADING RULES:
+                    1. Accept spelling mistakes.
+                    2. Accept synonyms (e.g. "ملاخي" = "ملاخي النبي").
+                    3. Determine correctness based on meaning.
+                    
                     Questions: `;
                     questions.forEach((q, i) => prompt += `Q${i+1}: ${q.question} \n Model: ${q.answer} \n Student: ${userAnswers[i]||"No"} \n ---\n`);
-                    prompt += `Return ONLY JSON: { "score": number, "total": number, "details": [{ "q_index": 0, "correct": true/false, "feedback": "Short Arabic" }], "final_feedback": "Encouraging Arabic" }`;
-
+                    prompt += `Return ONLY JSON: { "score": number, "total": number, "details": [{ "q_index": 0, "correct": true/false, "feedback": "Short Arabic feedback" }], "final_feedback": "Encouraging Arabic comment" }`;
+                    
                     const rawResponse = await aiCall(prompt);
                     const jsonResult = JSON.parse(rawResponse.replace(/```json/g, '').replace(/```/g, '').trim());
                     setResult(jsonResult);
                     setSubmitted(true);
-                    
-                    // Trigger Save Modal if passed (>= 50%)
-                    if(jsonResult.score >= Math.ceil(jsonResult.total/2)) {
-                        setTimeout(() => setShowSaveModal(true), 2000);
-                    }
-
+                    if(jsonResult.score >= Math.ceil(jsonResult.total/2)) setTimeout(() => setShowSaveModal(true), 2000);
                 } catch (e) { setAlert("حدث خطأ أثناء التصحيح."); } finally { setLoading(false); }
             };
 
@@ -390,7 +356,6 @@
                 return (
                     <div className="h-full p-6 overflow-y-auto bg-gray-50 dark:bg-gray-900 text-center animate-fade-in relative">
                         {showSaveModal && <ContestResultModal score={result.score} total={result.total} issueId={issue.id} onClose={()=>setShowSaveModal(false)} setAlert={setAlert} />}
-                        
                         <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-xl max-w-lg mx-auto border-t-8 border-purple-500">
                             <div className="text-6xl mb-4">{result.score === result.total ? '🏆' : '🎉'}</div>
                             <h2 className="text-2xl font-black text-gray-800 dark:text-white mb-2">{t.contestResult}</h2>
@@ -416,7 +381,6 @@
                         {questions.map((q, i) => (
                             <div key={i} className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-indigo-100">
                                 <label className="block font-bold text-lg mb-3 text-gray-800 dark:text-white"><span className="text-indigo-500 ml-2">#{i+1}</span>{q.question}</label>
-                                {/* Check for options */}
                                 {q.options && q.options.length > 0 ? (
                                     <div className="space-y-2">
                                         {q.options.map((opt, idx) => (
@@ -441,7 +405,6 @@
             const hasContest = issue.contest && issue.contest.length > 0;
             const hideMagazine = issue.hide_magazine === true; 
             const [tab, setTab] = React.useState(hideMagazine ? (hasContest ? 'contest' : 'video') : "mag");
-            
             return (
                 <div className="h-screen flex flex-col bg-white dark:bg-gray-900">
                     <div className="flex items-center justify-between p-3 border-b dark:border-gray-800 shadow-sm z-20">
@@ -457,7 +420,7 @@
                     </div>
                     <div className="flex-1 bg-gray-100 dark:bg-black relative overflow-hidden">
                         {!hideMagazine && tab === 'mag' && <iframe src={issue.magazine_url} className="w-full h-full border-none bg-white"></iframe>}
-                        {tab === 'video' && <div className="h-full overflow-y-auto p-4 space-y-4">{issue.videos && issue.videos.map((v, i) => (<div key={i} className="bg-white dark:bg-gray-800 p-2 rounded-xl shadow"><div className="aspect-video bg-black"><iframe src={getYoutubeEmbed(v.url)} className="w-full h-full"></iframe></div></div>))}</div>}
+                        {tab === 'video' && <div className="h-full overflow-y-auto p-4 space-y-6">{issue.videos && issue.videos.map((v, i) => (<div key={i} className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700"><h3 className="text-lg font-bold text-gray-800 dark:text-white mb-3 text-right">{v.title}</h3><div className="aspect-video bg-black rounded-xl overflow-hidden shadow-inner"><iframe src={getYoutubeEmbed(v.url)} className="w-full h-full" allowFullScreen></iframe></div></div>))}</div>}
                         {tab === 'activities' && <ActivitiesView t={t} setAlert={setAlert} aiCall={aiCall} />}
                         {hasContest && tab === 'contest' && <ContestView issue={issue} t={t} setAlert={setAlert} aiCall={aiCall} />}
                     </div>
@@ -468,13 +431,21 @@
         function UnlockView({ onUnlock, t, error, processing }) {
             const [code, setCode] = React.useState("");
             const [scanning, setScanning] = React.useState(false);
+            const html5QrCodeRef = React.useRef(null);
+
+            React.useEffect(() => {
+                return () => { if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) { html5QrCodeRef.current.stop().catch(err => console.error(err)); } };
+            }, []);
+
             const startScan = () => { 
                 setScanning(true); 
                 setTimeout(() => { 
-                    const scanner = new Html5Qrcode("reader"); 
-                    scanner.start({ facingMode: "environment" }, { fps: 10 }, 
-                        (decoded) => { scanner.stop(); setScanning(false); onUnlock(decoded); }, 
-                        (err) => { if(!err.includes("No user")) console.error(err); }); 
+                    const html5QrCode = new Html5Qrcode("reader");
+                    html5QrCodeRef.current = html5QrCode;
+                    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, 
+                        (decoded) => { html5QrCode.stop().then(() => { html5QrCodeRef.current = null; setScanning(false); onUnlock(decoded); }).catch(err => console.error(err)); }, 
+                        (err) => { }
+                    ).catch(err => { console.error(err); setScanning(false); }); 
                 }, 100); 
             };
 
@@ -506,7 +477,6 @@
             const [appLogo, setAppLogo] = React.useState('');
             const [introData, setIntroData] = React.useState({}); 
             const [showIntro, setShowIntro] = React.useState(true); 
-            const [showFriends, setShowFriends] = React.useState(false); 
             const [showFriendsForm, setShowFriendsForm] = React.useState(false); 
             
             const [reflection, setReflection] = React.useState("");
@@ -586,7 +556,7 @@
                             </div>
                         </div>
                         <div className="flex gap-2 items-center">
-                            <button onClick={()=>setShowFriends(true)} className="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-3 py-1 rounded-lg font-bold text-xs shadow-md">{t.friendsBook}</button>
+                            <button onClick={()=>setShowFriendsForm(true)} className="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-3 py-1 rounded-lg font-bold text-xs shadow-md">{t.joinFriends}</button>
                             <button onClick={()=>setLang(prev => prev === 'ar' ? 'en' : 'ar')} className="bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-lg font-bold text-xs shadow-md">{t.langBtn}</button>
                             <button onClick={()=>setTheme(prev => prev === 'light' ? 'dark' : 'light')} className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center shadow text-xl">{theme === 'light' ? '☀️' : '🌙'}</button>
                         </div>
@@ -626,17 +596,8 @@
                         })}
                     </div>
 
-                    {/* Floating Friends Button */}
-                    <button onClick={() => setShowFriendsForm(true)} className="fixed bottom-4 right-4 z-40 bg-gradient-to-r from-pink-500 to-rose-500 text-white px-6 py-4 rounded-full font-black text-lg shadow-2xl hover:scale-110 transition transform flex items-center gap-2 border-4 border-white animate-bounce-slow">
-                        <span>🤝</span> {t.joinFriends}
-                    </button>
-
                     {showFriendsForm && <FriendsModal t={t} onClose={() => setShowFriendsForm(false)} setAlert={setAppAlert} />}
-                    
-                    {showFriends && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"><div className="bg-white dark:bg-gray-900 w-full max-w-2xl max-h-[80vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col relative border border-white/20 animate-pop-in"><div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 flex justify-between items-center text-white"><div><h2 className="text-2xl font-black">الكتاب العجيب 📖</h2><p className="text-sm text-indigo-100 font-medium">حكايات وفيديوهات أصحابنا</p></div><button onClick={() => setShowFriends(false)} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition text-lg font-bold">✕</button></div><div className="p-6 overflow-y-auto flex-1 bg-indigo-50 dark:bg-gray-800"><div className="text-center py-10 space-y-4"><div className="text-6xl animate-pulse">📺</div><h3 className="text-xl font-bold text-gray-700 dark:text-gray-300">قريباً.. فيديوهات أبطالنا!</h3></div></div></div></div>}
-                    
-                    {showUnlock && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"><div className="bg-white dark:bg-gray-900 w-full max-w-md p-6 rounded-3xl relative animate-pop-in shadow-2xl"><button onClick={()=>setShowUnlock(false)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">✕</button><UnlockView onUnlock={handleUnlock} t={t} error={unlockError} processing={verifying} /></div></div>}
-                    
+                    {showUnlock && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"><div className="bg-white dark:bg-gray-900 w-full max-w-md p-6 rounded-3xl relative animate-pop-in shadow-2xl"><button onClick={()=>{setShowUnlock(false); if(window.stopScan) window.stopScan();}} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">✕</button><UnlockView onUnlock={handleUnlock} t={t} error={unlockError} processing={verifying} /></div></div>}
                     {alertMessage && <MessageModal message={alertMessage} onClose={() => setAlertMessage(null)} type={alertType} />}
                 </div>
             );

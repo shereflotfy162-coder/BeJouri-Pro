@@ -17,7 +17,6 @@
         .tab-btn.active { background-color: #2563eb; color: white; transform: scale(1.05); }
         .animate-fade-in { animation: fadeIn 0.5s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        /* Print Styles */
         @media print { 
             .no-print { display: none !important; } 
             .qr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 20px; } 
@@ -37,7 +36,6 @@
         let internalPassword = "456";
         const BACKUP_PASSWORDS = ["Admin@2025"];
 
-        // Utility Functions
         function compressImage(file) { return new Promise((r) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = (e) => { const img = new Image(); img.src = e.target.result; img.onload = () => { const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); const w = Math.min(img.width, 1000); const h = img.height * (w / img.width); canvas.width = w; canvas.height = h; ctx.drawImage(img, 0, 0, w, h); canvas.toBlob((b) => r(new File([b], file.name, { type: 'image/jpeg' })), 'image/jpeg', 0.7); }; }; }); }
         async function uploadFile(file) { if (!file) return null; const compressed = await compressImage(file); const name = `${Date.now()}_${Math.random().toString(36).substring(2)}.jpg`; const { error } = await supabase.storage.from('images').upload(name, compressed); if (error) throw error; return supabase.storage.from('images').getPublicUrl(name).data.publicUrl; }
         async function generateCodesLogic(issueId, count) { const c = []; for(let i=0; i<count; i++) c.push({code: `BJ-${issueId}-${Math.floor(10000+Math.random()*90000)}`, issue_id: parseInt(issueId)}); await supabase.from('codes').insert(c); }
@@ -122,7 +120,6 @@
                             <input value={issueData.title} onChange={e=>setIssueData({...issueData, title: e.target.value})} placeholder="العنوان" className="w-full border p-2 rounded"/>
                             <input value={issueData.date} onChange={e=>setIssueData({...issueData, date: e.target.value})} placeholder="التاريخ" className="w-full border p-2 rounded"/>
                             <input value={issueData.magUrl} onChange={e=>setIssueData({...issueData, magUrl: e.target.value})} placeholder="رابط المجلة" className="w-full border p-2 rounded"/>
-                            
                             <div className="bg-gray-50 p-2 rounded border">
                                 <label className="text-xs font-bold block mb-1">مسابقة العدد:</label>
                                 {issueData.contestQuestions.map((q, i) => (
@@ -134,13 +131,11 @@
                                 ))}
                                 <button onClick={handleAddQuestion} className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">+ سؤال</button>
                             </div>
-
                             <div className="bg-gray-50 p-2 rounded border">
                                 <label className="text-xs font-bold block mb-1">فيديوهات:</label>
                                 {issueData.videos.map((v, i) => (<div key={i} className="flex gap-1 mb-1"><input value={v.title} onChange={e=>handleVideoChange(i,'title',e.target.value)} placeholder="عنوان" className="w-1/2 border p-1"/><input value={v.url} onChange={e=>handleVideoChange(i,'url',e.target.value)} placeholder="رابط" className="w-1/2 border p-1"/></div>))}
                                 <button onClick={handleAddVideo} className="text-xs text-blue-600">+ فيديو</button>
                             </div>
-
                             <div className="flex flex-col gap-2">
                                 <label className="flex items-center gap-2"><input type="checkbox" checked={issueData.isFree} onChange={e=>setIssueData({...issueData, isFree: e.target.checked})} /> <span>مجاني</span></label>
                                 <label className="flex items-center gap-2"><input type="checkbox" checked={issueData.hideMagazine} onChange={e=>setIssueData({...issueData, hideMagazine: e.target.checked})} /> <span>إخفاء المجلة</span></label>
@@ -161,7 +156,6 @@
             );
         }
 
-        // --- Codes Tab Restored ---
         function CodesTab({ refreshIssues }) {
             const [issueId, setIssueId] = React.useState(''); const [count, setCount] = React.useState(''); const [loading, setLoading] = React.useState(false); const [codes, setCodes] = React.useState([]); const [issuesList, setIssuesList] = React.useState([]); const [codeType, setCodeType] = React.useState('unused');
             React.useEffect(() => { const f = async () => { const { data } = await supabase.from('issues').select('id, title'); if (data) setIssuesList(data); }; f(); }, [refreshIssues]);
@@ -183,34 +177,16 @@
                     <div className="bg-white p-8 rounded-2xl shadow border-t-4 border-green-500 h-fit">
                         <h2 className="font-bold text-2xl mb-6">✨ توليد أكواد</h2>
                         <input value={issueId} onChange={e=>setIssueId(e.target.value)} placeholder="رقم العدد" className="w-full p-4 border rounded-xl mb-4"/>
-                        <input value={count} onChange={e=>setCount(e.target.value)} type="number" placeholder="العدد" className="w-full p-4 border rounded-xl mb-4"/>
+                        <input value={count} onChange={e=>setCount(e.target.value)} type="number" placeholder="عدد الأكواد" className="w-full p-4 border rounded-xl mb-4"/>
                         <button onClick={generate} disabled={loading} className="w-full bg-green-600 text-white py-4 rounded-xl font-bold">{loading?'...':'توليد'}</button>
                     </div>
                     <div className="bg-white p-8 rounded-2xl shadow border-t-4 border-purple-500">
-                        <h2 className="font-bold text-2xl mb-6">🖨️ طباعة</h2>
+                        <h2 className="font-bold text-2xl mb-6">🖨️ الأكواد</h2>
                         <div className="flex gap-2 mb-4 bg-gray-100 p-1 rounded"><button onClick={()=>{setCodeType('unused');fetchCodes();}} className={`flex-1 py-2 ${codeType==='unused'?'bg-white shadow':''}`}>جديدة</button><button onClick={()=>{setCodeType('used');fetchCodes();}} className={`flex-1 py-2 ${codeType==='used'?'bg-white shadow':''}`}>مستخدمة</button></div>
                         <select value={issueId} onChange={e=>setIssueId(e.target.value)} onBlur={fetchCodes} className="w-full p-3 border rounded-xl mb-4"><option value="">اختر العدد...</option>{issuesList.map(i=><option key={i.id} value={i.id}>#{i.id} - {i.title.ar}</option>)}</select>
                         <button onClick={fetchCodes} className="w-full bg-gray-800 text-white px-6 py-2 rounded-xl mb-4">عرض ({codes.length})</button>
                         <div className="grid grid-cols-2 gap-3"><button onClick={printCodes} className="bg-purple-600 text-white py-3 rounded-xl font-bold">طباعة</button><button onClick={deleteCodes} className="bg-red-600 text-white py-3 rounded-xl font-bold">حذف</button></div>
                     </div>
-                </div>
-            );
-        }
-
-        function AmazingBookTab() {
-            const [videos, setVideos] = React.useState([]); const [newV, setNewV] = React.useState([{title_ar:'',url:''}]);
-            React.useEffect(()=>{ supabase.from('amazing_book_videos').select('*').then(({data})=>setVideos(data||[])) },[]);
-            const save = async () => { await supabase.from('amazing_book_videos').insert(newV.filter(v=>v.url)); alert('تم'); window.location.reload(); };
-            const del = async (id) => { if(confirm('حذف؟')) { await supabase.from('amazing_book_videos').delete().eq('id',id); window.location.reload(); } };
-            return (
-                <div className="grid lg:grid-cols-2 gap-6 animate-fade-in">
-                    <div className="bg-white p-6 rounded-2xl shadow h-fit">
-                        <h3 className="font-bold mb-4">إضافة فيديو</h3>
-                        {newV.map((v,i)=><div key={i} className="flex gap-2 mb-2"><input placeholder="عنوان" value={v.title_ar} onChange={e=>{const n=[...newV];n[i].title_ar=e.target.value;setNewV(n)}} className="border p-2 w-1/2"/><input placeholder="رابط" value={v.url} onChange={e=>{const n=[...newV];n[i].url=e.target.value;setNewV(n)}} className="border p-2 w-1/2"/></div>)}
-                        <button onClick={()=>setNewV([...newV,{title_ar:'',url:''}])} className="text-blue-500 mb-2">+ المزيد</button>
-                        <button onClick={save} className="w-full bg-green-600 text-white py-2 rounded">حفظ</button>
-                    </div>
-                    <div className="space-y-2">{videos.map(v=><div key={v.id} className="bg-white p-3 rounded shadow flex justify-between"><span>{v.title_ar}</span><button onClick={()=>del(v.id)} className="text-red-500">حذف</button></div>)}</div>
                 </div>
             );
         }
@@ -239,7 +215,6 @@
             return (
                 <div className="max-w-4xl mx-auto bg-white p-8 rounded-3xl shadow-xl border-t-4 border-blue-600 animate-fade-in">
                     <h2 className="font-bold text-2xl mb-6">⚙️ الإعدادات العامة</h2>
-                    
                     <div className="bg-red-50 p-6 rounded-xl border border-red-200 mb-6">
                         <h3 className="font-bold text-red-800 mb-2">مفاتيح AI (Gemini)</h3>
                         {keys.map((k, i) => (
@@ -250,20 +225,17 @@
                         ))}
                         <button onClick={() => setKeys([...keys, { key: '', expires: '' }])} className="text-red-600 font-bold">+ مفتاح</button>
                     </div>
-
                     <div className="grid md:grid-cols-2 gap-4 mb-4">
                         <div><label className="block font-bold">صورة الخلفية</label><input type="file" onChange={e=>setBgFile(e.target.files[0])} className="w-full border p-2"/></div>
                         <div><label className="block font-bold">اللوجو</label><input type="file" onChange={e=>setLogoFile(e.target.files[0])} className="w-full border p-2"/></div>
                         <div><label className="block font-bold">كلمة سر الأدمن</label><input value={data.adminPassword} onChange={e=>setData({...data,adminPassword:e.target.value})} className="w-full border p-2"/></div>
                         <div><label className="block font-bold">القفل الداخلي</label><input value={data.internalPassword} onChange={e=>setData({...data,internalPassword:e.target.value})} className="w-full border p-2"/></div>
                     </div>
-                    
                     <div className="bg-gray-50 p-4 rounded border mb-4">
                         <label className="block font-bold mb-2">رسالة الترحيب</label>
                         <input value={data.introTitle} onChange={e=>setData({...data,introTitle:e.target.value})} className="w-full border p-2 mb-2" placeholder="العنوان"/>
                         <textarea value={data.introBody} onChange={e=>setData({...data,introBody:e.target.value})} className="w-full border p-2 h-20" placeholder="المحتوى"/>
                     </div>
-
                     <button onClick={save} disabled={loading} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold">{loading?'...':'حفظ التغييرات'}</button>
                 </div>
             );
@@ -297,7 +269,6 @@
                             <button onClick={()=>setTab('contest_results')} className={`px-3 py-2 rounded ${tab==='contest_results'?'bg-purple-600 text-white':'bg-gray-100'}`}>🏆 النتائج</button>
                             <button onClick={()=>setTab('issues')} className={`px-3 py-2 rounded ${tab==='issues'?'bg-blue-600 text-white':'bg-gray-100'}`}>📰 الأعداد</button>
                             <button onClick={()=>setTab('codes')} className={`px-3 py-2 rounded ${tab==='codes'?'bg-blue-600 text-white':'bg-gray-100'}`}>🎫 الأكواد</button>
-                            <button onClick={()=>setTab('amazing_book')} className={`px-3 py-2 rounded ${tab==='amazing_book'?'bg-blue-600 text-white':'bg-gray-100'}`}>📖 الكتاب</button>
                             <button onClick={()=>setTab('settings')} className={`px-3 py-2 rounded ${tab==='settings'?'bg-blue-600 text-white':'bg-gray-100'}`}>⚙️ الإعدادات</button>
                             <button onClick={()=>{sessionStorage.clear();setAuth(false);}} className="bg-red-50 text-red-600 px-3 py-2 rounded border border-red-200">خروج</button>
                         </div>
@@ -306,7 +277,6 @@
                     {tab === 'contest_results' && <ContestResultsTab refresh={toggle} />}
                     {tab === 'issues' && <IssuesTab issues={issues} refresh={()=>setToggle(!toggle)} />}
                     {tab === 'codes' && <CodesTab refreshIssues={toggle} />}
-                    {tab === 'amazing_book' && <AmazingBookTab />}
                     {tab === 'settings' && <SettingsTab config={config} refresh={()=>setToggle(!toggle)} />}
                 </div>
             );
