@@ -26,7 +26,7 @@
             theme: { 
                 extend: { 
                     fontFamily: { sans: ['Cairo'], en: ['Fredoka'] },
-                    animation: { 'fade-in': 'fadeIn 0.5s ease-out', 'pop-in': 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', 'pulsered': 'pulsered 1.5s infinite' },
+                    animation: { 'fade-in': 'fadeIn 0.5s ease-out', 'pop-in': 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', 'pulsered': 'pulsered 1.5s infinite', 'bounce-slow': 'bounce 2s infinite' },
                     keyframes: { 
                         fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } }, 
                         popIn: { '0%': { opacity: '0', transform: 'scale(0.5)' }, '100%': { opacity: '1', transform: 'scale(1)' } },
@@ -38,79 +38,60 @@
         }
     </script>
     <style>
-        /* الأنماط الأساسية والداكنة */
         body { background-color: #f8fafc; font-family: 'Cairo', sans-serif; transition: background-color 0.3s; }
         .dark body { background-color: #0f172a; color: #e2e8f0; }
-        
-        /* الخلفية الديناميكية للتطبيق - مهم جداً */
         .app-bg { position: fixed; inset: 0; z-index: -1; background-size: cover; background-position: center; transition: background-image 0.5s ease-in-out; }
-        
-        /* أنماط العناصر الأخرى */
         .locked-overlay { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
         .verse-bubble { background-color: #fff; border-radius: 20px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); border: 2px solid #6366f1; animation: float 5s ease-in-out infinite; }
         .dark .verse-bubble { background-color: #1e293b; border-color: #4f46e5; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); }
-        .chat-bubble-user { background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: white; border-radius: 20px 20px 5px 20px; }
-        .chat-bubble-ai { background: #ffffff; border-radius: 20px 20px 20px 5px; }
-        .dark .chat-bubble-ai { background: #1e293b; color: #e2e8f0; }
+        .confetti { position: absolute; width: 10px; height: 10px; background-color: #f00; animation: fall 3s linear infinite; }
+        @keyframes fall { to { transform: translateY(100vh) rotate(720deg); } }
+        .tear { position: absolute; width: 2px; height: 15px; background: #3b82f6; opacity: 0.7; animation: rain 1s linear infinite; }
+        @keyframes rain { to { transform: translateY(100vh); } }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        // ✅ بيانات Supabase والتهيئة الثابتة في النطاق العالمي
         const SUPABASE_URL = "https://ozdnyepxfcjzldpkteau.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZG55ZXB4ZmNqemxkcGt0ZWF1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDEwNTM3MiwiZXhwIjoyMDc5NjgxMzcyfQ.mtqFcdRZeidpC0Ul8r_8FJOJalToT4lZeHNqd3-fsOg";
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        
-        const POINTS = { unlock: 50, reflect: 5, story: 5, prayer: 5, riddle: 10, video: 10 }; // النقاط
         
         const TRANSLATIONS = {
             ar: {
                 appTitle: "Beجوري", subTitle: "أبطال الكنيسة", loading: "جاري التحميل...",
                 free: "مجاني 🎁", locked: "اضغط للفتح", open: "مفتوح ✅",
-                loginTitle: "بوابة الأبطال", scanBtn: "📷 مسح بالكاميرا", manualBtn: "اكتب مفتاح العدد", activateBtn: "فتح العدد 🚀",
+                loginTitle: "اكتب مفتاح العدد", scanBtn: "📷 مسح بالكاميرا", manualBtn: "اكتب مفتاح العدد", activateBtn: "فتح العدد 🚀",
                 errUsed: "المفتاح مستخدم من قبل! 🚫", errWrong: "مفتاح لعدد آخر! ⚠️", errInvalid: "مفتاح خاطئ! ❌", errNetwork: "خطأ في الاتصال بالشبكة.",
                 verseTitle: "رسالة من السماء 🕊️", langBtn: "English",
                 introTitle: "أهلاً بيك يا جوري! 👋", introBody: "مرحباً بك في تطبيق Beجوري.", introBtn: "ابدأ الرحلة 🚀",
                 score: "النتيجة", playAgain: "العب تاني 🔄",
-                qSource: "مصدر الأسئلة:", qSrcInside: "من قلب المجلة 📖", qSrcOutside: "معلومات عامة 🌍",
-                qType: "نوع الأسئلة:", qTypeRel: "ديني ✝️", qTypeSci: "علمي 🔬",
-                storyTab: "✨ قصص", storySetup: "مكتبة الحكايات", storyPrompt: "عن ماذا تريد القصة؟", storyGen: "احكي لي 📖", storyVirtue: "فضيلة", storySaint: "قديس",
-                reflectBtn: "✨ تأمل", reflectTitle: "تأمل في الآية",
-                activitiesTab: "✨ أنشطة", actRiddle: "🧠 فوازير", actPrayer: "🙏 صلاتي",
-                riddleGen: "فزورة جديدة 🎲", riddlePlaceholder: "مين هو؟", riddleCheck: "تخمين ✅", riddleWrong: "حاول تاني ❌", riddleCorrect: "صح! 🎉",
-                prayerTitle: "اكتب طلبك", prayerGen: "اكتب لي صلاة ✨", prayerTopic: "مثال: الامتحانات، صديقي المريض...",
-                friendsBook: "الكتاب العجيب 📖",
-                regTitle: "تسجيل حساب جديد 🌹", regPhone: "رقم تليفونك", regParent: "رقم بابا أو ماما", regGrade: "أنت في سنة كام؟", regBtn: "سجل وادخل يا جوري 🚀",
-                loginBtn: "دخول لحساب موجود", loginCode: "أدخل رقم هاتفك المسجل", loginError: "رقم الهاتف غير مسجل!",
+                actRiddle: "🧠 فوازير", riddleGen: "فزورة جديدة 🎲", riddlePlaceholder: "مين هو؟", riddleCheck: "تخمين ✅", riddleWrong: "للأسف غلط 😢", riddleCorrect: "إجابة صحيحة! 🎉",
+                friendsBook: "الكتاب العجيب 📖", joinFriends: "أصدقاء المجلة",
                 apiError: "حدث خطأ في الاتصال بالذكاء الاصطناعي.",
-                dataError: "خطأ في تسجيل البيانات.",
-                keysFailed: "تم استنفاذ جميع مفاتيح الذكاء الاصطناعي! ⚠️ يرجى تحديثها في لوحة التحكم.",
-                logout: "خروج 🚪"
+                keysFailed: "تم استنفاذ جميع مفاتيح الذكاء الاصطناعي! ⚠️",
+                contestTab: "🏆 المسابقة", contestSubmit: "تصحيح الإجابات ✅", contestResult: "نتيجة المسابقة",
+                activitiesTab: "✨ أنشطة", // ✅ Fixed name
+                storyTab: "✨ قصص",
+                reflectBtn: "✨ تأمل", reflectTitle: "تأمل في الآية"
             },
             en: {
                 appTitle: "BeJouri", subTitle: "Church Heroes", loading: "Loading...",
                 free: "Free 🎁", locked: "Tap to Unlock", open: "Open ✅",
-                loginTitle: "Heroes Gate", scanBtn: "📷 Scan QR", manualBtn: "Enter Key", activateBtn: "Unlock Issue 🚀",
+                loginTitle: "Enter Issue Key", scanBtn: "📷 Scan QR", manualBtn: "Enter Key", activateBtn: "Unlock Issue 🚀",
                 errUsed: "Key Used! 🚫", errWrong: "Wrong Issue! ⚠️", errInvalid: "Invalid Key! ❌", errNetwork: "Network connection error.",
                 verseTitle: "Message from Heaven 🕊️", langBtn: "العربية",
                 introTitle: "Welcome Jouri! 👋", introBody: "Welcome to BeJouri app.", introBtn: "Start Journey 🚀",
                 score: "Score", playAgain: "Play Again 🔄",
-                qSource: "Source:", qSrcInside: "Inside Magazine 📖", qSrcOutside: "General Knowledge 🌍",
-                qType: "Type:", qTypeRel: "Religious ✝️", qTypeSci: "Scientific 🔬",
-                storyTab: "✨ Stories", storySetup: "Tales Library", storyPrompt: "What is the story about?", storyGen: "Tell me 📖", storyVirtue: "Virtue", storySaint: "Saint",
-                reflectBtn: "✨ Reflect", reflectTitle: "Verse Reflection",
-                activitiesTab: "✨ Activities", actRiddle: "🧠 Riddles", actPrayer: "🙏 Prayers",
-                riddleGen: "New Riddle 🎲", riddlePlaceholder: "Who is it?", riddleCheck: "Guess ✅", riddleCorrect: "Correct! 🎉", riddleWrong: "Try Again ❌",
-                prayerTitle: "Your Request", prayerGen: "Compose Prayer ✨", prayerTopic: "e.g., Exams, Sick friend...",
-                friendsBook: "Wonder Book 📖",
-                regTitle: "Jouri Registration 🌹", regPhone: "Your Phone", regParent: "Parent Phone", regGrade: "Grade", regBtn: "Register & Enter 🚀",
-                loginBtn: "Login to Existing Account", loginCode: "Enter your registered phone number", loginError: "Phone number not registered!",
+                actRiddle: "🧠 Riddles", riddleGen: "New Riddle 🎲", riddlePlaceholder: "Who is it?", riddleCheck: "Guess ✅", riddleCorrect: "Correct! 🎉", riddleWrong: "Wrong 😢",
+                friendsBook: "Wonder Book 📖", joinFriends: "Friends of the Mag",
                 apiError: "AI connection error.",
-                dataError: "Data registration error.",
-                keysFailed: "All AI keys are exhausted! ⚠️ Please update them in the Dashboard.",
-                logout: "Logout 🚪"
+                keysFailed: "All AI keys are exhausted! ⚠️",
+                contestTab: "🏆 Contest", contestSubmit: "Grade Answers ✅", contestResult: "Contest Result",
+                activitiesTab: "✨ Activities",
+                storyTab: "✨ Stories",
+                reflectBtn: "✨ Reflect", reflectTitle: "Verse Reflection"
             }
         };
 
@@ -122,44 +103,7 @@
             return null;
         }
         
-        async function awardPointsAndLog(childId, currentPoints, currentHistory, points, action, issueId = null) {
-            if (!childId) return;
-
-            // Ensure currentHistory is an array and does not contain null/undefined
-            const safeHistory = (Array.isArray(currentHistory) ? currentHistory : []).filter(item => item && typeof item === 'object');
-
-            const newTotalPoints = currentPoints + points;
-            const newHistory = [...safeHistory, {
-                action: action, 
-                points: points, 
-                timestamp: new Date().toISOString(),
-                issue_id: issueId
-            }];
-            
-            try {
-                // IMPORTANT: Removed points_history from SELECT to prevent error if column is missing
-                const { data: updatedChild, error } = await supabase.from('children')
-                    .update({ 
-                        points: newTotalPoints, 
-                        points_history: newHistory 
-                    })
-                    .eq('id', childId)
-                    .select('id, full_name, phone, parent_phone, grade, points, unlocked_issues') // Removed points_history from SELECT
-                    .single();
-
-                if (error) throw error;
-                // Add history back manually for state consistency
-                return { ...updatedChild, points_history: newHistory };
-
-            } catch (e) {
-                // If the error is related to missing column (which it is), log warning but don't crash
-                console.warn("Failed to update points or log history (Check for missing points_history column in Supabase):", e);
-                // Fallback: Just return current child data without history for now
-                return null;
-            }
-        }
-        
-        async function checkCodeOnline(code, issueId, child) {
+        async function checkCodeOnline(code, issueId) {
             try {
                 const cleanCode = code.trim().toUpperCase();
                 if(cleanCode === "ADMIN123") return { success: true };
@@ -170,45 +114,8 @@
                 if (String(codeData.issue_id) !== String(issueId)) return { success: false, error: "WRONG_ISSUE" };
                 if (codeData.used) return { success: false, error: "USED" };
                 
-                // 1. تحديث الكود في قاعدة البيانات إلى مستخدم
-                await supabase.from('codes').update({ used: true, used_at: new Date(), used_by_id: child ? child.id : null }).eq('code', cleanCode);
-                
-                let updatedChild = null;
-
-                // 2. تحديث سجل الكورسات المفتوحة في ملف الطفل (إن وجد)
-                if (child) {
-                    const unlockedIssues = child.unlocked_issues || [];
-                    if (!unlockedIssues.includes(issueId)) {
-                        const newIssues = [...unlockedIssues, issueId];
-                        
-                        // IMPORTANT: Update to select fewer columns to avoid missing column error
-                        const { data: updateData, error: updateError } = await supabase.from('children')
-                            .update({ unlocked_issues: newIssues })
-                            .eq('id', child.id)
-                            .select('id, points') // Only select required data
-                            .single();
-                        
-                        if(updateError) console.warn("Failed to update unlocked_issues column. Ensure it exists in Supabase.", updateError);
-
-                        // 3. منح النقاط وتسجيل النشاط
-                        // NOTE: If unlocked_issues is missing, we proceed with current child data
-                        const currentPoints = child.points || (updateData ? updateData.points : 0);
-                        const currentHistory = child.points_history || [];
-
-                        updatedChild = await awardPointsAndLog(
-                            child.id, 
-                            currentPoints, 
-                            currentHistory, 
-                            POINTS.unlock, 
-                            `فتح عدد جديد #${issueId} (كود)`,
-                            issueId
-                        );
-                    } else {
-                        updatedChild = child;
-                    }
-                }
-
-                return { success: true, updatedChild: updatedChild };
+                await supabase.from('codes').update({ used: true, used_at: new Date() }).eq('code', cleanCode);
+                return { success: true };
             } catch (e) { 
                 console.error("Code check error:", e);
                 return { success: false, error: "NET_ERROR" }; 
@@ -229,7 +136,7 @@
                 for (let i = 0; i < keys.length; i++) {
                     const checkIndex = (startingIndex + i) % keys.length;
                     const keyObj = keys[checkIndex];
-                    if (keyObj.status !== 'failed' && !(keyObj.expires && new Date(keyObj.expires) < new Date())) {
+                    if (keyObj.status !== 'failed') {
                         currentIndex = checkIndex;
                         keyFound = true;
                         break;
@@ -254,28 +161,19 @@
                         setAllKeysFailed(false); 
                         return (await response.json()).candidates?.[0]?.content?.parts?.[0]?.text || "No response";
                     }
-                    
-                    console.warn(`API Call failed for key at index ${currentIndex} with status ${response.status}. Rotating key.`);
-                    
+                    console.warn(`API Call failed. Rotating key.`);
                     currentKeyObj.status = 'failed'; 
                     setAiKeys([...keys]);
-                    
                     startingIndex = (currentIndex + 1) % keys.length;
-
                     await new Promise(resolve => setTimeout(resolve, 500)); 
-
                 } catch (e) {
-                    console.error(`Network error for key ${currentIndex}:`, e);
-                    
+                    console.error(`Network error:`, e);
                     currentKeyObj.status = 'network_failed'; 
                     setAiKeys([...keys]);
-                    
                     startingIndex = (currentIndex + 1) % keys.length;
-
                     await new Promise(resolve => setTimeout(resolve, 500)); 
                 }
             }
-            
             setAllKeysFailed(true);
             throw new Error("ALL_KEYS_FAILED");
         };
@@ -287,7 +185,6 @@
                 case 'warning': icon = '⚠️'; color = 'bg-yellow-100 text-yellow-800 border-yellow-500'; break;
                 default: icon = '❌'; color = 'bg-red-100 text-red-800 border-red-500'; break;
             }
-
             return (
                 <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
                     <div className={`bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-xs text-center shadow-2xl border-4 ${color} relative overflow-hidden animate-pop-in`}>
@@ -312,73 +209,23 @@
             );
         }
 
-        function AuthModal({ t, onAuthSuccess, setAlert }) {
-            const [mode, setMode] = React.useState('register'); // 'register' or 'login'
-            const [data, setData] = React.useState({ name: '', phone: '', parent: '', grade: 'الصف الأول الابتدائي' });
+        function FriendsModal({ t, onClose, setAlert }) {
+            const [data, setData] = React.useState({ name: '', phone: '', grade: 'الصف الأول الابتدائي', talent: '' });
             const [loading, setLoading] = React.useState(false);
 
-            const handleRegister = async () => {
-                // Ensure phone number is used for primary lookup
-                if (!data.name || !data.phone || !data.parent) return setAlert("من فضلك املأ كل البيانات يا جوري!");
+            const handleSubmit = async () => {
+                if (!data.name || !data.phone) return setAlert("من فضلك اكتب الاسم والرقم");
                 setLoading(true);
                 try {
-                    // Check for existing phone number
-                    const { data: existing, error: existError } = await supabase.from('children').select('id').eq('phone', data.phone).maybeSingle();
-                    
-                    if (existError && existError.code !== 'PGRST116') throw existError; // Check for a real error other than no rows found
-                    
-                    if (existing) {
-                        setAlert("هذا الهاتف مسجل لحساب آخر. يرجى استخدام 'دخول لحساب موجود'.");
-                        setLoading(false);
-                        return;
-                    }
-
-                    // Attempt to insert new child
-                    // IMPORTANT: Removed points_history and unlocked_issues from INSERT/SELECT to avoid missing column errors
-                    const { data: child, error } = await supabase.from('children').insert([{ 
-                        full_name: data.name, phone: data.phone, parent_phone: data.parent, grade: data.grade, points: 0
-                    }]).select('id, full_name, phone, parent_phone, grade, points').single(); // Simplified Select
-                    
-                    if (error) throw error;
-                    
-                    localStorage.setItem('bejouri_child_id', JSON.stringify({ id: child.id }));
-                    onAuthSuccess(child); // Update state to dismiss modal
-                    setAlert("تم التسجيل والدخول بنجاح! 🎉", 'success');
-
+                    const { error } = await supabase.from('children').insert([{ 
+                        full_name: data.name, phone: data.phone, grade: data.grade, talent: data.talent, points: 0
+                    }]);
+                    if (error && error.code !== '23505') throw error;
+                    setAlert("تم تسجيل بياناتك بنجاح في أصدقاء المجلة! 🎉", 'success');
+                    localStorage.setItem('bejouri_friend_joined', 'true');
+                    onClose();
                 } catch (e) { 
-                    console.error("Registration error:", e);
-                    setAlert(t.dataError); 
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const handleLogin = async () => {
-                if (!data.phone) return setAlert("من فضلك أدخل رقم الهاتف!");
-                setLoading(true);
-                try {
-                    // IMPORTANT: Removed points_history and unlocked_issues from SELECT to avoid missing column errors
-                    const { data: child, error } = await supabase.from('children')
-                        .select('id, full_name, phone, parent_phone, grade, points') 
-                        .eq('phone', data.phone)
-                        .maybeSingle(); 
-                    
-                    // Check if entry exists
-                    if (error && error.code !== 'PGRST116') throw error; // Check for a real error
-                    
-                    if (!child) {
-                        setAlert(t.loginError);
-                        setLoading(false);
-                        return; 
-                    }
-                    
-                    localStorage.setItem('bejouri_child_id', JSON.stringify({ id: child.id }));
-                    onAuthSuccess(child); // Update state to dismiss modal
-                    setAlert("تم الدخول بنجاح! 👋", 'success');
-
-                } catch (e) { 
-                    console.error("Login error:", e);
-                    setAlert(t.dataError); 
+                    setAlert("حدث خطأ بسيط، حاول مرة أخرى.");
                 } finally {
                     setLoading(false);
                 }
@@ -387,84 +234,61 @@
             return (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-indigo-900/95 backdrop-blur-xl animate-fade-in">
                     <div className="bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl relative animate-pop-in border-4 border-yellow-400">
-                        <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 text-6xl">🎓</div>
-                        
-                        <div className="flex justify-center mb-6 border-b pb-2">
-                            <button onClick={()=>setMode('register')} className={`px-4 py-2 font-black text-lg ${mode === 'register' ? 'text-indigo-800 border-b-4 border-yellow-500' : 'text-gray-400'}`}>{t.regTitle}</button>
-                            <button onClick={()=>setMode('login')} className={`px-4 py-2 font-black text-lg ${mode === 'login' ? 'text-indigo-800 border-b-4 border-yellow-500' : 'text-gray-400'}`}>{t.loginBtn}</button>
+                        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl font-bold">✕</button>
+                        <div className="text-center mb-6">
+                            <div className="text-5xl mb-2">🤝</div>
+                            <h2 className="text-2xl font-black text-indigo-900">سجل في أصدقاء المجلة</h2>
+                            <p className="text-sm text-gray-500">مش إجباري، بس بنحب نعرف أصحابنا ❤️</p>
                         </div>
-
-                        {mode === 'register' ? (
-                            <div className="space-y-4">
-                                <div><label className="block text-xs font-bold text-gray-500 mb-1">الاسم بالكامل</label><input value={data.name} onChange={e=>setData({...data, name: e.target.value})} className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 focus:border-indigo-500 outline-none"/></div>
-                                <div><label className="block text-xs font-bold text-gray-500 mb-1">{t.regPhone}</label><input type="tel" value={data.phone} onChange={e=>setData({...data, phone: e.target.value})} className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 focus:border-indigo-500 outline-none"/></div>
-                                <div><label className="block text-xs font-bold text-gray-500 mb-1">{t.regParent}</label><input type="tel" value={data.parent} onChange={e=>setData({...data, parent: e.target.value})} className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 focus:border-indigo-500 outline-none"/></div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">{t.regGrade}</label>
-                                    <select value={data.grade} onChange={e=>setData({...data, grade: e.target.value})} className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 focus:border-indigo-500 outline-none">
-                                        <option>الصف الأول الابتدائي</option><option>الصف الثاني الابتدائي</option><option>الصف الثالث الابتدائي</option>
-                                        <option>الصف الرابع الابتدائي</option><option>الصف الخامس الابتدائي</option><option>الصف السادس الابتدائي</option>
-                                    </select>
-                                </div>
-                                <button onClick={handleRegister} disabled={loading} className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-4 rounded-xl font-black text-xl shadow-lg hover:scale-105 transition transform mt-2">
-                                    {loading ? "جاري التسجيل..." : t.regBtn}
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="space-y-6">
-                                <h3 className="text-xl font-bold text-center text-gray-700">{t.loginCode}</h3>
-                                <div><label className="block text-xs font-bold text-gray-500 mb-1">{t.regPhone}</label><input type="tel" value={data.phone} onChange={e=>setData({...data, phone: e.target.value})} className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 focus:border-indigo-500 outline-none"/></div>
-                                <button onClick={handleLogin} disabled={loading} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-xl font-black text-xl shadow-lg hover:scale-105 transition transform">
-                                    {loading ? "جاري الدخول..." : "دخول 🚀"}
-                                </button>
-                            </div>
-                        )}
+                        <div className="space-y-4">
+                            <input value={data.name} onChange={e=>setData({...data, name: e.target.value})} placeholder="الاسم ثلاثي" className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 outline-none"/>
+                            <input type="tel" value={data.phone} onChange={e=>setData({...data, phone: e.target.value})} placeholder="رقم تليفونك أو رقم بابا/ماما" className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 outline-none"/>
+                            <select value={data.grade} onChange={e=>setData({...data, grade: e.target.value})} className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 outline-none">
+                                <option>الصف الأول الابتدائي</option><option>الصف الثاني الابتدائي</option><option>الصف الثالث الابتدائي</option><option>الصف الرابع الابتدائي</option><option>الصف الخامس الابتدائي</option><option>الصف السادس الابتدائي</option>
+                            </select>
+                            <input value={data.talent} onChange={e=>setData({...data, talent: e.target.value})} placeholder="موهبتك إيه؟ (رسم، ترنيم، شعر...)" className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 outline-none"/>
+                            <button onClick={handleSubmit} disabled={loading} className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-4 rounded-xl font-black text-xl shadow-lg hover:scale-105 transition transform mt-2">{loading ? "جاري التسجيل..." : "سجل الآن 🚀"}</button>
+                        </div>
                     </div>
                 </div>
             );
         }
-        
-        function StoryView({ t, setAlert, aiCall, child, setChild }) {
-            const [topic, setTopic] = React.useState("");
-            const [story, setStory] = React.useState("");
-            const [loading, setLoading] = React.useState(false);
-            const generateStory = async () => {
-                if(!topic) return setAlert("من فضلك اكتب فكرة القصة أولاً!");
-                setLoading(true);
-                try { 
-                    const text = await aiCall(`Write a short story for Christian children in Egyptian Arabic about: "${topic}".`);
-                    setStory(text); 
-                    if (child) {
-                        const updatedChild = await awardPointsAndLog(child.id, child.points, child.points_history || [], POINTS.story, 'توليد قصة');
-                        if(updatedChild) setChild(updatedChild);
-                    }
 
-                } catch(e) { 
-                    if (e.message.includes("API_KEY_MISSING") || e.message.includes("ALL_KEYS_FAILED")) setAlert(t.keysFailed, 'warning');
-                    else setAlert(t.apiError); 
-                } 
-                setLoading(false);
+        // --- Contest Result Form Modal ---
+        function ContestResultModal({ score, total, issueId, onClose, setAlert }) {
+            const [data, setData] = React.useState({ name: '', phone: '' });
+            const [loading, setLoading] = React.useState(false);
+
+            const saveResult = async () => {
+                if(!data.name || !data.phone) return setAlert("اكتب اسمك ورقمك لحفظ النتيجة!");
+                setLoading(true);
+                try {
+                    await supabase.from('contest_submissions').insert([{
+                        issue_id: issueId, student_name: data.name, student_phone: data.phone, score: score, total: total
+                    }]);
+                    setAlert("تم حفظ نتيجتك يا بطل! 🏆", 'success');
+                    onClose();
+                } catch(e) {
+                    setAlert("خطأ في الحفظ، حاول تاني.");
+                } finally { setLoading(false); }
             };
+
             return (
-                <div className="h-full flex flex-col p-6 bg-indigo-50 dark:bg-gray-900 overflow-y-auto">
-                    {!story ? (
-                        <div className="flex flex-col items-center justify-center h-full text-center">
-                            <div className="text-6xl mb-4">📚</div><h2 className="text-2xl font-bold mb-6 dark:text-white">{t.storySetup}</h2>
-                            <input value={topic} onChange={e=>setTopic(e.target.value)} placeholder={t.storyPrompt} className="w-full max-w-sm p-4 rounded-xl shadow-sm border-2 border-indigo-100 mb-4 text-center text-lg" />
-                            <button onClick={generateStory} disabled={loading} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 transition">{loading ? "جاري الحكي..." : t.storyGen}</button>
-                            {child && <p className="mt-4 text-sm text-gray-500">تحصل على {POINTS.story} نقاط عند توليد القصة.</p>}
-                        </div>
-                    ) : (
-                        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl relative">
-                            <button onClick={()=>setStory("")} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 font-bold">✕</button>
-                            <div className="prose dark:prose-invert text-lg leading-loose text-gray-700 dark:text-gray-200 whitespace-pre-wrap font-medium">{story}</div>
-                        </div>
-                    )}
+                <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center border-4 border-purple-500 animate-pop-in">
+                        <div className="text-6xl mb-4">📸</div>
+                        <h3 className="text-2xl font-black text-purple-900 mb-2">مبروك النجاح!</h3>
+                        <p className="text-gray-600 mb-6">سجل اسمك عشان تظهر في لوحة الشرف</p>
+                        <input value={data.name} onChange={e=>setData({...data, name: e.target.value})} placeholder="الاسم بالكامل" className="w-full p-3 border-2 rounded-xl mb-3 font-bold"/>
+                        <input value={data.phone} onChange={e=>setData({...data, phone: e.target.value})} placeholder="رقم التليفون" className="w-full p-3 border-2 rounded-xl mb-4 font-bold"/>
+                        <button onClick={saveResult} disabled={loading} className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700">{loading?"جاري الحفظ...":"حفظ النتيجة 💾"}</button>
+                        <button onClick={onClose} className="mt-3 text-gray-400 text-sm underline">لا شكراً</button>
+                    </div>
                 </div>
             );
         }
 
-        function ActivitiesView({ t, setAlert, aiCall, child, setChild }) {
+        function ActivitiesView({ t, setAlert, aiCall }) {
             const [mode, setMode] = React.useState('menu'); 
             const [data, setData] = React.useState(null); 
             const [input, setInput] = React.useState(""); 
@@ -472,20 +296,13 @@
             const [loading, setLoading] = React.useState(false);
 
             const generateRiddle = async () => {
-                setLoading(true); 
-                setFeedback(""); 
-                setInput("");
+                setLoading(true); setFeedback(""); setInput("");
                 try { 
-                    const rawText = await aiCall(`Generate a riddle in Arabic about a Coptic Saint. Return ONLY the JSON object: { "riddle": "...", "answer": "..." }. Ensure the answer is the saint's name only.`);
+                    const prompt = `You are a smart Sunday School teacher. Generate a NEW, UNIQUE, EASY riddle in Egyptian Arabic about a Coptic Saint or Bible character. Return ONLY JSON: { "riddle": "...", "answer": "..." }.`;
+                    const rawText = await aiCall(prompt);
                     const cleanText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-                    const json = JSON.parse(cleanText); 
-                    setData(json); 
-                } catch(e) { 
-                    console.error(e);
-                    if (e.message.includes("API_KEY_MISSING") || e.message.includes("ALL_KEYS_FAILED")) setAlert(t.keysFailed, 'warning');
-                    else setAlert(t.apiError); 
-                    setMode('menu'); 
-                } 
+                    setData(JSON.parse(cleanText)); 
+                } catch(e) { setAlert(t.apiError); setMode('menu'); } 
                 setLoading(false);
             };
 
@@ -493,125 +310,138 @@
                 if(!input || !data) return; 
                 setLoading(true);
                 try { 
-                    const rawText = await aiCall(`Answer: "${data.answer}". Guess: "${input}". Are they the same person? Return ONLY the JSON object: { "correct": true/false }. Be lenient with minor spelling differences.`);
-                    const cleanText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-                    const json = JSON.parse(cleanText); 
-                    
-                    if(json.correct) {
-                        setFeedback("correct");
-                        if (child) {
-                            const updatedChild = await awardPointsAndLog(child.id, child.points, child.points_history || [], POINTS.riddle, 'حل فزورة صحيح');
-                            if(updatedChild) setChild(updatedChild);
-                        }
-                    } else {
-                        setFeedback("wrong");
-                    }
-                } catch(e) { 
-                    setFeedback("wrong"); 
-                    if (e.message.includes("API_KEY_MISSING") || e.message.includes("ALL_KEYS_FAILED")) setAlert(t.keysFailed, 'warning');
-                    else setAlert(t.apiError); 
-                } 
+                    const prompt = `Model Answer: "${data.answer}". Student Guess: "${input}". Are they correct? Return ONLY JSON: { "correct": true/false }.`;
+                    const rawText = await aiCall(prompt);
+                    const json = JSON.parse(rawText.replace(/```json/g, '').replace(/```/g, '').trim());
+                    setFeedback(json.correct ? "correct" : "wrong");
+                } catch(e) { setFeedback("wrong"); } 
                 setLoading(false);
             };
 
-            const generatePrayer = async () => {
-                if(!input) return setAlert("من فضلك اكتب موضوع الصلاة أولاً!");
-                setLoading(true); 
-                try { 
-                    const text = await aiCall(`Write a short Coptic prayer in formal Arabic about the topic: "${input}".`);
-                    setData(text);
-                    if (child) {
-                        const updatedChild = await awardPointsAndLog(child.id, child.points, child.points_history || [], POINTS.prayer, 'توليد صلاة');
-                        if(updatedChild) setChild(updatedChild);
-                    }
-                } catch(e) { 
-                    if (e.message.includes("API_KEY_MISSING") || e.message.includes("ALL_KEYS_FAILED")) setAlert(t.keysFailed, 'warning');
-                    else setAlert(t.apiError); 
-                } 
-                setLoading(false);
-            };
-
-            if(mode === 'menu') return (<div className="h-full flex flex-col items-center justify-center p-6 gap-4"><button onClick={()=>{setMode('riddle'); generateRiddle();}} className="w-full max-w-xs p-6 bg-purple-500 rounded-2xl text-white font-black text-xl shadow-lg hover:bg-purple-600 transition">{t.actRiddle}</button><button onClick={()=>{setMode('prayer'); setData(null); setInput("");}} className="w-full max-w-xs p-6 bg-emerald-500 rounded-2xl text-white font-black text-xl shadow-lg hover:bg-emerald-600 transition">{t.actPrayer}</button></div>);
-            
-            if(mode === 'riddle') return (
-                <div className="h-full flex flex-col p-6 text-center overflow-y-auto bg-gray-50 dark:bg-gray-900">
-                    <button onClick={()=>setMode('menu')} className="self-start mb-4 text-indigo-600 dark:text-indigo-400 font-bold">
-                        <span className="transform rotate-180 inline-block">➜</span> العودة
-                    </button>
-                    {loading && !data ? (<div className="flex flex-col items-center justify-center h-full"><span className="text-4xl animate-bounce">🎲</span><p className="mt-4 text-gray-500 dark:text-gray-300">{t.loading}</p></div>) : (
-                        <div className="flex flex-col items-center">
-                            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl mb-4 w-full border-2 border-purple-200 dark:border-purple-800">
-                                <p className="text-lg font-bold text-gray-800 dark:text-white">{data?.riddle}</p>
-                            </div>
-                            {feedback !== 'correct' && (<div className="flex gap-2 w-full max-w-md"><input value={input} onChange={e=>setInput(e.target.value)} placeholder={t.riddlePlaceholder} className="flex-1 p-3 border-2 rounded-xl text-center focus:border-purple-500 outline-none dark:bg-gray-700 dark:text-white" /><button onClick={checkRiddle} disabled={loading} className="bg-purple-600 text-white px-6 py-3 rounded-xl font-bold shadow-md hover:bg-purple-700 transition">
-                                {loading ? "..." : t.riddleCheck}
-                            </button></div>)}
-                            {feedback === 'correct' && <div className="mt-4 bg-green-100 p-4 rounded-xl w-full max-w-md text-green-800 font-black animate-pop-in border-2 border-green-500">{t.riddleCorrect}</div>}
-                            {feedback === 'wrong' && <div className="mt-4 bg-red-100 p-4 rounded-xl w-full max-w-md text-red-800 font-bold animate-fade-in border-2 border-red-500">{t.riddleWrong}</div>}
-                            <button onClick={generateRiddle} disabled={loading} className="mt-6 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 px-6 py-2 rounded-full font-bold shadow hover:bg-purple-200 transition">
-                                {loading ? t.loading : t.riddleGen}
-                            </button>
-                            {child && <p className="mt-4 text-sm text-gray-500">تحصل على {POINTS.riddle} نقاط عند الحل الصحيح.</p>}
-                        </div>
-                    )}
+            if(mode === 'menu') return (
+                <div className="h-full flex flex-col items-center justify-center p-6 gap-4">
+                    <button onClick={()=>{setMode('riddle'); generateRiddle();}} className="w-full max-w-xs p-6 bg-purple-500 rounded-2xl text-white font-black text-xl shadow-lg hover:bg-purple-600 transition transform hover:scale-105">{t.actRiddle}</button>
                 </div>
             );
             
-            if(mode === 'prayer') return (
-                <div className="h-full flex flex-col p-6 text-center overflow-y-auto bg-gray-50 dark:bg-gray-900">
-                    <button onClick={()=>setMode('menu')} className="self-start mb-4 text-emerald-600 dark:text-emerald-400 font-bold">
-                        <span className="transform rotate-180 inline-block">➜</span> العودة
-                    </button>
-                    {!data ? (
-                        <div className="flex flex-col items-center justify-center h-full">
-                            <div className="text-6xl mb-6">🙏</div>
-                            <input value={input} onChange={e=>setInput(e.target.value)} placeholder={t.prayerTopic} className="w-full max-w-md p-4 border-2 border-emerald-300 rounded-xl mb-6 text-center focus:border-emerald-500 outline-none dark:bg-gray-700 dark:text-white"/>
-                            <button onClick={generatePrayer} disabled={loading} className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-black text-xl shadow-lg hover:bg-emerald-700 transition">
-                                {loading ? "جاري الكتابة..." : t.prayerGen}
-                            </button>
-                            {child && <p className="mt-4 text-sm text-gray-500">تحصل على {POINTS.prayer} نقاط عند توليد الصلاة.</p>}
-                        </div>
-                    ) : (
-                        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl relative border-t-4 border-emerald-500 animate-pop-in">
-                            <button onClick={()=>setData(null)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">✕</button>
-                            <h3 className="text-lg font-bold text-emerald-600 mb-4">{t.prayerTitle}</h3>
-                            <p className="text-base leading-relaxed whitespace-pre-wrap text-gray-700 dark:text-gray-300">{data}</p>
+            if(mode === 'riddle') return (
+                <div className="h-full flex flex-col p-6 text-center overflow-y-auto bg-gray-50 dark:bg-gray-900 relative overflow-hidden">
+                    {feedback === 'correct' && <div className="absolute inset-0 pointer-events-none z-50 flex items-center justify-center">{[...Array(20)].map((_, i) => <div key={i} className="confetti" style={{left: `${Math.random()*100}%`, animationDuration:`${Math.random()*2+1}s`}}></div>)}</div>}
+                    {feedback === 'wrong' && <div className="absolute inset-0 pointer-events-none z-50"><div className="absolute inset-0 bg-blue-900/20"></div>{[...Array(10)].map((_, i) => <div key={i} className="tear" style={{left: `${Math.random()*100}%`}}></div>)}</div>}
+
+                    <button onClick={()=>setMode('menu')} className="self-start mb-4 text-indigo-600 dark:text-indigo-400 font-bold z-10 relative"><span className="transform rotate-180 inline-block">➜</span> العودة</button>
+                    
+                    {loading && !data ? (<div className="flex flex-col items-center justify-center h-full"><span className="text-4xl animate-bounce">🎲</span><p className="mt-4 text-gray-500">{t.loading}</p></div>) : (
+                        <div className="flex flex-col items-center z-10 relative w-full">
+                            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl mb-4 w-full border-2 border-purple-200"><p className="text-lg font-bold text-gray-800 dark:text-white leading-relaxed">{data?.riddle}</p></div>
+                            
+                            {feedback !== 'correct' && (
+                                <div className="flex gap-2 w-full max-w-md">
+                                    <input value={input} onChange={e=>setInput(e.target.value)} placeholder={t.riddlePlaceholder} className="flex-1 p-3 border-2 rounded-xl text-center outline-none dark:bg-gray-700 dark:text-white" />
+                                    <button onClick={checkRiddle} disabled={loading} className="bg-purple-600 text-white px-6 py-3 rounded-xl font-bold shadow-md hover:bg-purple-700 transition">{loading ? "..." : t.riddleCheck}</button>
+                                </div>
+                            )}
+
+                            {feedback === 'correct' && <div className="mt-4 bg-green-100 p-6 rounded-3xl w-full max-w-md text-green-800 font-black animate-pop-in border-4 border-green-500 shadow-2xl"><div className="text-6xl mb-2 animate-bounce">🎉🏆</div>{t.riddleCorrect}</div>}
+                            {feedback === 'wrong' && <div className="mt-4 bg-red-100 p-6 rounded-3xl w-full max-w-md text-red-800 font-bold animate-fade-in border-4 border-red-500 shadow-2xl">{t.riddleWrong}</div>}
+
+                            <button onClick={generateRiddle} disabled={loading} className="mt-6 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 px-6 py-2 rounded-full font-bold shadow hover:bg-purple-200 transition">{loading ? t.loading : t.riddleGen}</button>
                         </div>
                     )}
                 </div>
             );
         }
 
-        function IssueDetail({ issue, onBack, t, setAlert, aiCall, child, setChild }) {
-            const [tab, setTab] = React.useState("mag");
-            const [videoPointsAwarded, setVideoPointsAwarded] = React.useState(false); 
-            
-            React.useEffect(() => {
-                if (child && child.points_history) {
-                    // Check if points were already awarded for this issue video tab
-                    const awarded = (child.points_history || []).some(log => log.action.includes('مشاهدة فيديو') && log.issue_id === issue.id);
-                    setVideoPointsAwarded(awarded);
-                }
-            }, [child, issue.id]);
+        // ✅ Contest View supports Options & Save Result
+        function ContestView({ issue, t, setAlert, aiCall }) {
+            const [userAnswers, setUserAnswers] = React.useState({});
+            const [result, setResult] = React.useState(null);
+            const [loading, setLoading] = React.useState(false);
+            const [submitted, setSubmitted] = React.useState(false);
+            const [showSaveModal, setShowSaveModal] = React.useState(false);
 
-            const handleVideoTabOpen = () => {
-                setTab('video');
-                if (child && issue.videos && issue.videos.length > 0 && !videoPointsAwarded) {
-                    awardPointsAndLog(
-                        child.id, 
-                        child.points, 
-                        child.points_history || [], 
-                        POINTS.video, 
-                        `مشاهدة فيديو للعدد #${issue.id}`,
-                        issue.id
-                    ).then(updatedChild => {
-                        if(updatedChild) setChild(updatedChild);
-                    });
-                }
+            const submitAnswers = async () => {
+                const questions = issue.contest || [];
+                if (Object.keys(userAnswers).length < questions.length) return setAlert("من فضلك جاوب على كل الأسئلة!");
+                setLoading(true);
+                try {
+                    let prompt = `Teacher grading quiz. Questions, model answers, student answers provided. Determine correctness.
+                    Questions: `;
+                    questions.forEach((q, i) => prompt += `Q${i+1}: ${q.question} \n Model: ${q.answer} \n Student: ${userAnswers[i]||"No"} \n ---\n`);
+                    prompt += `Return ONLY JSON: { "score": number, "total": number, "details": [{ "q_index": 0, "correct": true/false, "feedback": "Short Arabic" }], "final_feedback": "Encouraging Arabic" }`;
+
+                    const rawResponse = await aiCall(prompt);
+                    const jsonResult = JSON.parse(rawResponse.replace(/```json/g, '').replace(/```/g, '').trim());
+                    setResult(jsonResult);
+                    setSubmitted(true);
+                    
+                    // Trigger Save Modal if passed (>= 50%)
+                    if(jsonResult.score >= Math.ceil(jsonResult.total/2)) {
+                        setTimeout(() => setShowSaveModal(true), 2000);
+                    }
+
+                } catch (e) { setAlert("حدث خطأ أثناء التصحيح."); } finally { setLoading(false); }
             };
-            
-            const commonProps = { t, setAlert, aiCall, child, setChild };
 
+            const questions = issue.contest || [];
+            if (questions.length === 0) return <div className="p-8 text-center text-gray-500">لا توجد مسابقة.</div>;
+
+            if (submitted && result) {
+                return (
+                    <div className="h-full p-6 overflow-y-auto bg-gray-50 dark:bg-gray-900 text-center animate-fade-in relative">
+                        {showSaveModal && <ContestResultModal score={result.score} total={result.total} issueId={issue.id} onClose={()=>setShowSaveModal(false)} setAlert={setAlert} />}
+                        
+                        <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-xl max-w-lg mx-auto border-t-8 border-purple-500">
+                            <div className="text-6xl mb-4">{result.score === result.total ? '🏆' : '🎉'}</div>
+                            <h2 className="text-2xl font-black text-gray-800 dark:text-white mb-2">{t.contestResult}</h2>
+                            <div className="text-4xl font-black text-purple-600 mb-4">{result.score} / {result.total}</div>
+                            <p className="text-gray-600 dark:text-gray-300 mb-6 font-bold">{result.final_feedback}</p>
+                            <div className="space-y-3 text-right">
+                                {result.details && result.details.map((d, i) => (
+                                    <div key={i} className={`p-3 rounded-xl border ${d.correct ? 'bg-green-50' : 'bg-red-50'}`}>
+                                        <div className="font-bold text-sm mb-1">{questions[d.q_index]?.question}</div>
+                                        <div className={`text-xs font-bold ${d.correct ? 'text-green-700' : 'text-red-700'}`}>{d.correct ? '✅' : '❌'} {d.feedback}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="h-full p-6 overflow-y-auto bg-indigo-50 dark:bg-gray-900">
+                    <div className="max-w-2xl mx-auto space-y-6">
+                        <div className="text-center mb-6"><h2 className="text-2xl font-black text-indigo-800 dark:text-white">🏆 مسابقة العدد</h2></div>
+                        {questions.map((q, i) => (
+                            <div key={i} className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-indigo-100">
+                                <label className="block font-bold text-lg mb-3 text-gray-800 dark:text-white"><span className="text-indigo-500 ml-2">#{i+1}</span>{q.question}</label>
+                                {/* Check for options */}
+                                {q.options && q.options.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {q.options.map((opt, idx) => (
+                                            <label key={idx} className="flex items-center gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                                                <input type="radio" name={`q-${i}`} value={opt} checked={userAnswers[i] === opt} onChange={e => setUserAnswers({...userAnswers, [i]: e.target.value})} className="w-5 h-5 accent-indigo-600"/>
+                                                <span className="font-bold text-gray-700 dark:text-gray-200">{opt}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <textarea value={userAnswers[i] || ''} onChange={e => setUserAnswers({...userAnswers, [i]: e.target.value})} placeholder="اكتب إجابتك..." className="w-full p-4 rounded-xl bg-gray-50 border-2 outline-none dark:bg-gray-700 dark:text-white"/>
+                                )}
+                            </div>
+                        ))}
+                        <button onClick={submitAnswers} disabled={loading} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-xl font-black shadow-lg">{loading ? "..." : t.contestSubmit}</button>
+                    </div>
+                </div>
+            );
+        }
+
+        function IssueDetail({ issue, onBack, t, setAlert, aiCall }) {
+            const hasContest = issue.contest && issue.contest.length > 0;
+            const hideMagazine = issue.hide_magazine === true; 
+            const [tab, setTab] = React.useState(hideMagazine ? (hasContest ? 'contest' : 'video') : "mag");
+            
             return (
                 <div className="h-screen flex flex-col bg-white dark:bg-gray-900">
                     <div className="flex items-center justify-between p-3 border-b dark:border-gray-800 shadow-sm z-20">
@@ -619,24 +449,23 @@
                         <div className="text-sm font-black truncate px-2 dark:text-white">{issue.title.ar}</div>
                         <div className="w-10"></div>
                     </div>
-                    <div className="flex justify-around bg-indigo-50 dark:bg-gray-800 p-1">
-                        <button onClick={()=>setTab('mag')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${tab==='mag'?'bg-white dark:bg-gray-900 text-indigo-600 shadow':'text-gray-500 dark:text-gray-400'}`}>📖 المجلة</button>
-                        <button onClick={handleVideoTabOpen} className={`flex-1 py-2 text-xs font-bold rounded-lg ${tab==='video'?'bg-white dark:bg-gray-900 text-indigo-600 shadow':'text-gray-500 dark:text-gray-400'}`}>📺 فيديو</button>
-                        <button onClick={()=>setTab('story')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${tab==='story'?'bg-white dark:bg-gray-900 text-indigo-600 shadow':'text-gray-500 dark:text-gray-400'}`}>{t.storyTab}</button>
-                        <button onClick={()=>setTab('activities')} className={`flex-1 py-2 text-xs font-bold rounded-lg ${tab==='activities'?'bg-white dark:bg-gray-900 text-indigo-600 shadow':'text-gray-500 dark:text-gray-400'}`}>{t.activitiesTab}</button>
+                    <div className="flex justify-around bg-indigo-50 dark:bg-gray-800 p-1 overflow-x-auto">
+                        {!hideMagazine && <button onClick={()=>setTab('mag')} className={`flex-1 py-2 text-xs font-bold rounded-lg min-w-[80px] ${tab==='mag'?'bg-white dark:bg-gray-900 text-indigo-600 shadow':'text-gray-500'}`}>📖 المجلة</button>}
+                        <button onClick={()=>setTab('video')} className={`flex-1 py-2 text-xs font-bold rounded-lg min-w-[80px] ${tab==='video'?'bg-white dark:bg-gray-900 text-indigo-600 shadow':'text-gray-500'}`}>📺 فيديو</button>
+                        <button onClick={()=>setTab('activities')} className={`flex-1 py-2 text-xs font-bold rounded-lg min-w-[80px] ${tab==='activities'?'bg-white dark:bg-gray-900 text-indigo-600 shadow':'text-gray-500'}`}>{t.activitiesTab}</button>
+                        {hasContest && <button onClick={()=>setTab('contest')} className={`flex-1 py-2 text-xs font-bold rounded-lg min-w-[80px] ${tab==='contest'?'bg-white dark:bg-gray-900 text-purple-600 shadow border-b-2 border-purple-500':'text-gray-500'}`}>{t.contestTab}</button>}
                     </div>
                     <div className="flex-1 bg-gray-100 dark:bg-black relative overflow-hidden">
-                        
-                        {tab === 'mag' && <iframe src={issue.magazine_url} className="w-full h-full border-none bg-white"></iframe>}
-                        {tab === 'video' && <div className="h-full overflow-y-auto p-4 space-y-4">{issue.videos && issue.videos.map((v, i) => (<div key={i} className="bg-white dark:bg-gray-800 p-2 rounded-xl shadow"><div className="aspect-video bg-black"><iframe src={getYoutubeEmbed(v.url)} className="w-full h-full"></iframe></div></div>))}{child && <p className="text-center text-sm text-gray-500">{videoPointsAwarded ? `تم منحك ${POINTS.video} نقطة سابقاً.` : `تحصل على ${POINTS.video} نقاط عند فتح هذا التبويب لأول مرة.`}</p>}</div>}
-                        {tab === 'story' && <StoryView {...commonProps} />}
-                        {tab === 'activities' && <ActivitiesView {...commonProps} />}
+                        {!hideMagazine && tab === 'mag' && <iframe src={issue.magazine_url} className="w-full h-full border-none bg-white"></iframe>}
+                        {tab === 'video' && <div className="h-full overflow-y-auto p-4 space-y-4">{issue.videos && issue.videos.map((v, i) => (<div key={i} className="bg-white dark:bg-gray-800 p-2 rounded-xl shadow"><div className="aspect-video bg-black"><iframe src={getYoutubeEmbed(v.url)} className="w-full h-full"></iframe></div></div>))}</div>}
+                        {tab === 'activities' && <ActivitiesView t={t} setAlert={setAlert} aiCall={aiCall} />}
+                        {hasContest && tab === 'contest' && <ContestView issue={issue} t={t} setAlert={setAlert} aiCall={aiCall} />}
                     </div>
                 </div>
             );
         }
 
-        function LoginView({ onLogin, error, processing, t, setAlert }) {
+        function UnlockView({ onUnlock, t, error, processing }) {
             const [code, setCode] = React.useState("");
             const [scanning, setScanning] = React.useState(false);
             const startScan = () => { 
@@ -644,35 +473,21 @@
                 setTimeout(() => { 
                     const scanner = new Html5Qrcode("reader"); 
                     scanner.start({ facingMode: "environment" }, { fps: 10 }, 
-                        (decoded) => { 
-                            scanner.stop(); 
-                            setScanning(false); 
-                            onLogin(decoded); 
-                        }, 
-                        (errMsg) => {
-                            if (errMsg.includes("No user")) {
-                                // Ignore camera not found errors which are common in safe environments
-                            } else {
-                                console.error("QR Error:", errMsg);
-                            }
-                        }); 
+                        (decoded) => { scanner.stop(); setScanning(false); onUnlock(decoded); }, 
+                        (err) => { if(!err.includes("No user")) console.error(err); }); 
                 }, 100); 
             };
 
             return (
                 <div className="flex flex-col items-center text-center">
                     <h2 className="text-2xl font-black mb-4 dark:text-white">{t.loginTitle}</h2>
-                    {scanning ? <div id="reader" className="w-full h-64 bg-black mb-4 rounded-xl"></div> : <button onClick={startScan} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-black text-lg mb-4 shadow-lg hover:bg-indigo-700 transition">{t.scanBtn}</button>}
-                    <input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder={t.manualBtn} className="w-full p-3 rounded-xl bg-gray-100 dark:bg-gray-700 dark:text-white text-center font-bold mb-3 border-2 focus:border-yellow-400 outline-none" />
-                    <button onClick={()=>onLogin(code)} disabled={processing} className="w-full py-3 bg-yellow-400 font-black text-lg rounded-xl shadow-lg hover:bg-yellow-500 transition">
-                        {processing ? "جاري التحقق..." : t.activateBtn}
-                    </button>
+                    {scanning ? <div id="reader" className="w-full h-64 bg-black mb-4 rounded-xl"></div> : <button onClick={startScan} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-black text-lg mb-4 shadow-lg">{t.scanBtn}</button>}
+                    <input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder={t.manualBtn} className="w-full p-3 rounded-xl bg-gray-100 dark:bg-gray-700 dark:text-white text-center font-bold mb-3 border-2 outline-none" />
+                    <button onClick={()=>onUnlock(code)} disabled={processing} className="w-full py-3 bg-yellow-400 font-black text-lg rounded-xl shadow-lg">{processing ? "..." : t.activateBtn}</button>
                     {error && <div className="mt-4 p-2 bg-red-100 text-red-700 font-bold rounded-lg border border-red-300 w-full">{error}</div>}
                 </div>
             );
         }
-
-        const ChildContext = React.createContext();
 
         function App() {
             const [view, setView] = React.useState("home");
@@ -680,23 +495,22 @@
             const [theme, setTheme] = React.useState(localStorage.getItem('bejouri_theme') || 'light');
             const [issues, setIssues] = React.useState([]);
             const [activeIssue, setActiveIssue] = React.useState(null);
-            const [showLogin, setShowLogin] = React.useState(false);
-            const [targetId, setTargetId] = React.useState(null);
-            const [loginError, setLoginError] = React.useState("");
-            const [verifying, setVerifying] = React.useState(false);
             
+            const [showUnlock, setShowUnlock] = React.useState(false);
+            const [targetIssueId, setTargetIssueId] = React.useState(null);
+            const [unlockError, setUnlockError] = React.useState("");
+            const [verifying, setVerifying] = React.useState(false);
+            const [unlockedIssues, setUnlockedIssues] = React.useState(JSON.parse(localStorage.getItem('bejouri_unlocked_list') || '[]'));
+
             const [appBg, setAppBg] = React.useState('');
             const [appLogo, setAppLogo] = React.useState('');
             const [introData, setIntroData] = React.useState({}); 
             const [showIntro, setShowIntro] = React.useState(true); 
             const [showFriends, setShowFriends] = React.useState(false); 
+            const [showFriendsForm, setShowFriendsForm] = React.useState(false); 
             
             const [reflection, setReflection] = React.useState("");
             const [reflecting, setReflecting] = React.useState(false);
-            
-            const [child, setChild] = React.useState(null);
-            const [isLoginEnabled, setIsLoginEnabled] = React.useState(false);
-            const [isAuthModalVisible, setIsAuthModalVisible] = React.useState(false);
             
             const [alertMessage, setAlertMessage] = React.useState(null);
             const [alertType, setAlertType] = React.useState('error');
@@ -705,294 +519,103 @@
             const [activeKeyIndex, setActiveKeyIndex] = React.useState(0);
             const [allKeysFailed, setAllKeysFailed] = React.useState(false);
             
-            const setAppAlert = (message, type = 'error') => {
-                setAlertMessage(message);
-                setAlertType(type);
-            }
-
-            const handleReflection = React.useCallback(async (verse, aiCall) => { 
-                setReflecting(true); 
-                setReflection("");
-                try { 
-                    const text = await aiCall(`Write a short Coptic contemplation/reflection for a child in Arabic based on the Bible verse: "${verse}"`); 
-                    setReflection(text);
-                    if (child) {
-                        const updatedChild = await awardPointsAndLog(child.id, child.points, child.points_history || [], POINTS.reflect, 'تأمل في الآية');
-                        if(updatedChild) setChild(updatedChild);
-                    }
-                } catch(e) { 
-                    if (e.message.includes("API_KEY_MISSING") || e.message.includes("ALL_KEYS_FAILED")) setAppAlert(TRANSLATIONS[lang].keysFailed, 'warning');
-                    else setAppAlert(TRANSLATIONS[lang].apiError); 
-                } 
-                setReflecting(false); 
-            }, [lang, child]);
-
             const t = TRANSLATIONS[lang];
-
-            const fetchChildData = React.useCallback(async (childId) => {
-                try {
-                    // IMPORTANT: Only select safe columns (without unlocked_issues/points_history) to ensure stable fetching
-                    const { data: childData, error } = await supabase.from('children')
-                        .select('id, full_name, phone, parent_phone, grade, points') 
-                        .eq('id', childId)
-                        .maybeSingle(); 
-                    if (error || !childData) throw error;
-                    return childData;
-                } catch(e) {
-                    console.error("Failed to fetch child data:", e);
-                    localStorage.removeItem('bejouri_child_id');
-                    return null;
-                }
-            }, []);
-
-            React.useEffect(() => {
-                if (theme === 'dark') document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark');
-                localStorage.setItem('bejouri_theme', theme);
-                document.documentElement.lang = lang; document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-                localStorage.setItem('bejouri_lang', lang);
-
-                const fetchData = async () => {
-                    let settings = null;
-                    // Fetch Settings
-                    try {
-                        const { data: settingsData } = await supabase.from('settings').select('value').eq('key', 'config').maybeSingle();
-                        if (settingsData && settingsData.value) {
-                            settings = settingsData.value;
-                            setAppBg(`url("${settings.appBackground || ''}")`);
-                            setAppLogo(settings.appLogo || '');
-                            setIsLoginEnabled(!!settings.enableChildLogin); 
-                            setIntroData({ title: settings.introTitle, body: settings.introBody });
-                            
-                            if (settings.gemini_keys_list && Array.isArray(settings.gemini_keys_list)) {
-                                const initialKeys = settings.gemini_keys_list.map(k => ({...k, status: k.status || 'unused'}));
-                                setAiKeys(initialKeys);
-                            } else {
-                                setAiKeys([]);
-                            }
-                        }
-                    } catch(e) { console.error("Failed to fetch settings:", e); }
-
-                    // Fetch Issues (optimized)
-                    try {
-                        // IMPORTANT: Only select safe columns (without unlocked_issues/points_history) to ensure stable fetching
-                        const { data: issuesData } = await supabase.from('issues')
-                            .select('id, title, date, is_free, background, verse, magazine_url, videos') 
-                            .order('created_at', { ascending: false });
-                        if (issuesData) setIssues(issuesData);
-                    } catch(e) { console.error("Failed to fetch issues:", e); }
-                    
-                    // Fetch Child Data if login is enabled and ID is stored
-                    const storedChildId = JSON.parse(localStorage.getItem('bejouri_child_id') || 'null');
-                    const isLoginActive = !!settings?.enableChildLogin;
-
-                    if (isLoginActive && storedChildId?.id) {
-                        const childData = await fetchChildData(storedChildId.id);
-                        if (childData) setChild(childData);
-                    } else if (!isLoginActive && storedChildId?.id) {
-                         // Clear local storage if login is disabled by Admin
-                        localStorage.removeItem('bejouri_child_id');
-                        setChild(null);
-                    }
-                };
-                fetchData();
-            }, [lang, theme, fetchChildData]);
-
-            React.useEffect(() => {
-                if (isLoginEnabled && !child && !isAuthModalVisible) {
-                    setIsAuthModalVisible(true);
-                } else if (!isLoginEnabled || child) {
-                    setIsAuthModalVisible(false);
-                }
-            }, [isLoginEnabled, child, isAuthModalVisible]);
-
+            const setAppAlert = (msg, type='error') => { setAlertMessage(msg); setAlertType(type); };
 
             const aiCallWithKeys = React.useCallback(async (prompt) => {
                 return callGemini(prompt, aiKeys, activeKeyIndex, setActiveKeyIndex, setAiKeys, setAllKeysFailed);
-            }, [aiKeys, activeKeyIndex, setAiKeys, setActiveKeyIndex, setAllKeysFailed]);
+            }, [aiKeys, activeKeyIndex]);
 
             React.useEffect(() => {
-                const sendHeartbeat = async () => {
-                    let userId = child ? `child_${child.id}` : localStorage.getItem('bejouri_user_id');
-                    if (!userId && !child) {
-                        userId = 'user_' + Math.random().toString(36).substr(2, 9);
-                        localStorage.setItem('bejouri_user_id', userId);
+                if (theme === 'dark') document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark');
+                document.documentElement.lang = lang; document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+                
+                const init = async () => {
+                    const { data: settings } = await supabase.from('settings').select('value').eq('key', 'config').maybeSingle();
+                    if (settings?.value) {
+                        setAppBg(`url("${settings.value.appBackground || ''}")`);
+                        setAppLogo(settings.value.appLogo || '');
+                        setIntroData({ title: settings.value.introTitle, body: settings.value.introBody });
+                        setAiKeys(settings.value.gemini_keys_list || []);
                     }
-                    try {
-                        await supabase.from('online_users').upsert({ user_id: userId, last_seen: new Date() }, { onConflict: 'user_id' });
-                    } catch(e) { console.error("Heartbeat failed:", e); }
+                    const { data: issuesData } = await supabase.from('issues').select('*').order('created_at', { ascending: false });
+                    if (issuesData) setIssues(issuesData);
                 };
-                sendHeartbeat();
-                const interval = setInterval(sendHeartbeat, 600000); 
-                return () => clearInterval(interval);
-            }, [child]);
+                init();
+            }, [lang, theme]);
+
+            const handleReflection = async (verse) => {
+                setReflecting(true); setReflection("");
+                try { 
+                    const text = await aiCallWithKeys(`Write a short Coptic contemplation for a child in Arabic about: "${verse}"`);
+                    setReflection(text); 
+                } catch(e) { setAppAlert(t.apiError); } 
+                setReflecting(false); 
+            };
 
             const handleUnlock = async (code) => {
-                if (!child && isLoginEnabled) return setAppAlert("يجب تسجيل الدخول أولاً لفتح الأعداد.");
-
-                setVerifying(true); setLoginError("");
-                const issueId = targetId;
-
-                try {
-                    const res = await checkCodeOnline(code, issueId, child);
-
-                    if(res.success) {
-                        let updatedChild = res.updatedChild;
-
-                        if(!child) {
-                            const newUnlocked = [...(JSON.parse(localStorage.getItem('bejouri_unlocked') || '[]')), issueId];
-                            localStorage.setItem('bejouri_unlocked', JSON.stringify(newUnlocked));
-                        } else if(updatedChild) {
-                            setChild(updatedChild);
-                        }
-                        
-                        setActiveIssue(issues.find(i => i.id === issueId));
-                        setShowLogin(false); 
-                        setView("issue");
-
-                        if(res.updatedChild && res.updatedChild.points) {
-                            setAppAlert(`مبروك! تم فتح العدد #${issueId} وحصلت على ${POINTS.unlock} نقطة 🎉`, 'success');
-                        } else {
-                            setAppAlert(`تم فتح العدد #${issueId} بنجاح!`, 'success');
-                        }
-
-                    } else {
-                        if(res.error === "USED") setLoginError(t.errUsed); 
-                        else if(res.error === "WRONG_ISSUE") setLoginError(t.errWrong); 
-                        else if(res.error === "INVALID") setLoginError(t.errInvalid); 
-                        else setLoginError(t.errNetwork);
-                    }
-                } catch(e) {
-                    setLoginError(t.errNetwork);
+                setVerifying(true); setUnlockError("");
+                const res = await checkCodeOnline(code, targetIssueId);
+                if(res.success) {
+                    const newUnlocked = [...unlockedIssues, targetIssueId];
+                    setUnlockedIssues(newUnlocked);
+                    localStorage.setItem('bejouri_unlocked_list', JSON.stringify(newUnlocked));
+                    setActiveIssue(issues.find(i => i.id === targetIssueId));
+                    setShowUnlock(false);
+                    setView("issue");
+                    setAppAlert("تم فتح العدد بنجاح!", 'success');
+                } else {
+                    setUnlockError(res.error === "USED" ? t.errUsed : res.error === "WRONG_ISSUE" ? t.errWrong : res.error === "INVALID" ? t.errInvalid : t.errNetwork);
                 }
                 setVerifying(false);
             };
 
-            const handleLogout = () => {
-                localStorage.removeItem('bejouri_child_id');
-                setChild(null);
-                setAppAlert(t.logout, 'success');
-                setIsAuthModalVisible(true);
-            };
-
-            const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
-            const toggleLang = () => setLang(prev => prev === 'ar' ? 'en' : 'ar');
-            
-            const getUnlockedStatus = (issueId) => {
-                if (child) {
-                    const unlockedIssues = child.unlocked_issues || [];
-                    return (unlockedIssues.includes(issueId) || unlockedIssues.includes(String(issueId)));
-                }
-                const localUnlocked = JSON.parse(localStorage.getItem('bejouri_unlocked') || '[]');
-                return (localUnlocked.includes(issueId) || localUnlocked.includes(String(issueId)));
-            };
-
-            if (isAuthModalVisible && isLoginEnabled && !child) {
-                return <AuthModal t={t} onAuthSuccess={setChild} setAlert={setAppAlert} />;
-            }
-            
-            if(view === "issue" && activeIssue) return (
-                <ChildContext.Provider value={[child, setChild]}>
-                    <IssueDetail 
-                        issue={activeIssue} 
-                        onBack={()=>setView("home")} 
-                        t={t} 
-                        setAlert={setAppAlert} 
-                        aiCall={aiCallWithKeys}
-                        child={child} 
-                        setChild={setChild}
-                    />
-                    {alertMessage && <MessageModal message={alertMessage} onClose={() => setAlertMessage(null)} type={alertType} />}
-                </ChildContext.Provider>
-            );
-
-            const FriendsBookButton = (
-                <button onClick={() => setShowFriends(true)} className="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-3 py-1 rounded-lg font-bold text-xs transition hover:scale-105 flex items-center gap-1 shadow-md">
-                    <span className="text-base">📖</span>
-                    <span className="hidden sm:inline">{t.friendsBook}</span>
-                </button>
-            );
-
+            if(view === "issue" && activeIssue) return <IssueDetail issue={activeIssue} onBack={()=>setView("home")} t={t} setAlert={setAppAlert} aiCall={aiCallWithKeys} />;
 
             return (
                 <div className="min-h-screen relative text-gray-900 dark:text-white font-sans transition-colors duration-300">
                     {showIntro && <IntroModal onClose={() => setShowIntro(false)} data={introData} t={t} />}
-                    
                     <div className="app-bg" style={{ backgroundImage: appBg || 'none', backgroundColor: appBg ? 'transparent' : '#f8fafc' }}></div>
                     
                     <div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md p-4 shadow-sm flex justify-between items-center rounded-b-2xl mx-2 mt-2">
                         <div className="flex items-center gap-4">
                             {appLogo && <img src={appLogo} alt="Logo" className="h-20 w-20 object-contain drop-shadow-md" />}
                             <div>
-                                {child && isLoginEnabled ? (
-                                    <div className="flex flex-col">
-                                        <span className="text-lg font-black text-indigo-700 dark:text-indigo-300">أهلاً، {child.full_name.split(' ')[0]} 👋</span>
-                                        <span className="text-xs font-bold bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full w-fit shadow-md">⭐ {child.points} نقطة</span>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 drop-shadow-sm tracking-tight">{t.appTitle}</h1>
-                                        <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-1">{t.subTitle}</p>
-                                    </>
-                                )}
+                                <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 drop-shadow-sm tracking-tight">{t.appTitle}</h1>
+                                <p className="text-sm font-bold text-gray-500 dark:text-gray-400 mt-1">{t.subTitle}</p>
                             </div>
                         </div>
                         <div className="flex gap-2 items-center">
-                            {allKeysFailed && (
-                                <div className="animate-pulsered rounded-full px-2 py-1 text-xs font-bold text-white shadow-lg">⚠️ Key Error</div>
-                            )}
-                            
-                            <div className="hidden sm:inline-flex">
-                                {FriendsBookButton}
-                            </div>
-                            
-                            {child && isLoginEnabled && (
-                                <button onClick={handleLogout} className="bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-300 px-3 py-1 rounded-lg font-bold text-xs transition hover:scale-105 flex items-center gap-1 shadow-md">
-                                    {t.logout}
-                                </button>
-                            )}
-
-                            <button onClick={toggleLang} className="bg-gray-100 dark:bg-gray-800 dark:text-white px-3 py-1 rounded-lg font-bold text-xs transition hover:scale-105 shadow-md">{t.langBtn}</button>
-                            <button onClick={toggleTheme} className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center shadow transition hover:scale-105 text-xl">{theme === 'light' ? '☀️' : '🌙'}</button>
+                            <button onClick={()=>setShowFriends(true)} className="bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-3 py-1 rounded-lg font-bold text-xs shadow-md">{t.friendsBook}</button>
+                            <button onClick={()=>setLang(prev => prev === 'ar' ? 'en' : 'ar')} className="bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-lg font-bold text-xs shadow-md">{t.langBtn}</button>
+                            <button onClick={()=>setTheme(prev => prev === 'light' ? 'dark' : 'light')} className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center shadow text-xl">{theme === 'light' ? '☀️' : '🌙'}</button>
                         </div>
                     </div>
 
-                    <div className="sm:hidden flex justify-center py-2">
-                        {FriendsBookButton}
-                    </div>
-
                     <div className="p-4 space-y-4 pb-20 relative z-0">
-                        {issues.length > 0 && issues[0].verse && issues[0].verse.text && (
+                        {issues.length > 0 && issues[0].verse && (
                             <div className="animate-fade-in my-8">
                                 <div className="flex items-start gap-3 relative">
                                     <div className="w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center text-2xl shadow-md border-2 border-indigo-100 text-white z-10">✝️</div>
                                     <div className="flex-1 verse-bubble p-4 shadow-xl">
                                         <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">{t.verseTitle}</h4>
-                                        <p className="text-sm font-bold leading-relaxed text-gray-800 dark:text-gray-200">"{issues[0].verse.text}"</p>
-                                        <div className="text-right text-xs text-gray-500 dark:text-gray-400 mt-2 font-bold">— {issues[0].verse.ref}</div>
-                                        {child && <button onClick={()=>handleReflection(issues[0].verse.text, aiCallWithKeys)} className="mt-3 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full font-bold hover:bg-indigo-200 transition flex items-center gap-1">
-                                            {reflecting ? "جاري التأمل..." : t.reflectBtn}
-                                        </button>}
-                                        {child && <p className="mt-2 text-xs text-gray-500">تحصل على {POINTS.reflect} نقاط عند التأمل.</p>}
+                                        <p className="text-sm font-bold leading-relaxed">"{issues[0].verse.text}"</p>
+                                        <div className="text-right text-xs text-gray-500 mt-2 font-bold">— {issues[0].verse.ref}</div>
+                                        <button onClick={()=>handleReflection(issues[0].verse.text)} className="mt-3 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 px-3 py-1 rounded-full font-bold">{reflecting ? "..." : t.reflectBtn}</button>
                                     </div>
                                 </div>
-                                {reflection && (<div className="mt-4 mr-10 bg-yellow-50 dark:bg-gray-800 p-4 rounded-xl border-r-4 border-yellow-400 shadow-md animate-pop-in"><div className="flex justify-between items-center mb-2"><h5 className="font-bold text-xs text-yellow-600 dark:text-yellow-400">{t.reflectTitle}</h5><button onClick={()=>setReflection("")} className="text-gray-400 hover:text-red-500">✕</button></div><p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{reflection}</p></div>)}
+                                {reflection && <div className="mt-4 mr-10 bg-yellow-50 dark:bg-gray-800 p-4 rounded-xl border-r-4 border-yellow-400 shadow-md animate-pop-in"><div className="flex justify-between items-center mb-2"><h5 className="font-bold text-xs text-yellow-600">{t.reflectTitle}</h5><button onClick={()=>setReflection("")}>✕</button></div><p className="text-sm leading-relaxed whitespace-pre-wrap">{reflection}</p></div>}
                             </div>
                         )}
 
-                        {issues.length === 0 && <div className="text-center bg-white/80 dark:bg-gray-800 p-8 rounded-2xl font-bold">{t.loading}</div>}
-                        
                         {issues.map(issue => {
-                            const isFree = issue.is_free;
-                            const isAccountUnlocked = getUnlockedStatus(issue.id);
-                            
-                            const isOpen = isFree || isAccountUnlocked;
-
+                            const isOpen = issue.is_free || unlockedIssues.includes(issue.id) || unlockedIssues.includes(String(issue.id));
                             return (
-                                <div key={issue.id} onClick={() => isOpen ? (setActiveIssue(issue), setView("issue")) : (setTargetId(issue.id), setShowLogin(true), setLoginError(""))} className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 transform transition hover:-translate-y-1 cursor-pointer group">
+                                <div key={issue.id} onClick={() => isOpen ? (setActiveIssue(issue), setView("issue")) : (setTargetIssueId(issue.id), setShowUnlock(true), setUnlockError(""))} className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 transform transition hover:-translate-y-1 cursor-pointer group">
                                     <div className="flex h-36">
-                                        <div className="w-32 shrink-0 relative overflow-hidden">{issue.background ? (<img src={issue.background} className="w-full h-full object-cover transition duration-500 group-hover:scale-110" alt="Cover" />) : (<div className="w-full h-full flex items-center justify-center text-5xl bg-indigo-50 text-indigo-300">📖</div>)}</div>
+                                        <div className="w-32 shrink-0 relative overflow-hidden">{issue.background ? <img src={issue.background} className="w-full h-full object-cover transition duration-500 group-hover:scale-110" alt="Cover" /> : <div className="w-full h-full flex items-center justify-center text-5xl bg-indigo-50 text-indigo-300">📖</div>}</div>
                                         <div className="flex-1 p-5 flex flex-col justify-center bg-gradient-to-l from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
-                                            <div className="flex items-center justify-between mb-2"><span className="text-xs font-bold text-indigo-500 bg-indigo-50 dark:bg-indigo-900 dark:text-indigo-300 px-2 py-1 rounded-md">{issue.date?.ar}</span>{isOpen && <span className={`text-xs px-2 py-1 rounded-full font-bold ${isFree ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{isFree ? t.free : t.open}</span>}</div>
+                                            <div className="flex items-center justify-between mb-2"><span className="text-xs font-bold text-indigo-500 bg-indigo-50 dark:bg-indigo-900 dark:text-indigo-300 px-2 py-1 rounded-md">{issue.date?.ar}</span>{isOpen && <span className={`text-xs px-2 py-1 rounded-full font-bold ${issue.is_free ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{issue.is_free ? t.free : t.open}</span>}</div>
                                             <h3 className="text-2xl font-black text-gray-800 dark:text-white leading-tight mb-1">{issue.title.ar}</h3>
                                             <p className="text-xs text-gray-400 font-bold">اضغط للتصفح</p>
                                         </div>
@@ -1003,8 +626,16 @@
                         })}
                     </div>
 
-                    {showFriends && (<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"><div className="bg-white dark:bg-gray-900 w-full max-w-2xl max-h-[80vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col relative border border-white/20 animate-pop-in"><div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 flex justify-between items-center text-white"><div><h2 className="text-2xl font-black">الكتاب العجيب 📖</h2><p className="text-sm text-indigo-100 font-medium">حكايات وفيديوهات أصحابنا</p></div><button onClick={() => setShowFriends(false)} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition text-lg font-bold">✕</button></div><div className="p-6 overflow-y-auto flex-1 bg-indigo-50 dark:bg-gray-800"><div className="text-center py-10 space-y-4"><div className="text-6xl animate-pulse">📺</div><h3 className="text-xl font-bold text-gray-700 dark:text-gray-300">قريباً.. فيديوهات أبطالنا!</h3><p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto">هنا هتلاقي فيديوهات ومشاركات أصحابنا الحلوين. استنونا!</p></div></div></div></div>)}
-                    {showLogin && (<div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"><div className="bg-white dark:bg-gray-900 w-full max-w-md p-6 rounded-3xl relative animate-pop-in shadow-2xl"><button onClick={()=>setShowLogin(false)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">✕</button><LoginView onLogin={handleUnlock} error={loginError} processing={verifying} t={t} setAlert={setAppAlert} /></div></div>)}
+                    {/* Floating Friends Button */}
+                    <button onClick={() => setShowFriendsForm(true)} className="fixed bottom-4 right-4 z-40 bg-gradient-to-r from-pink-500 to-rose-500 text-white px-6 py-4 rounded-full font-black text-lg shadow-2xl hover:scale-110 transition transform flex items-center gap-2 border-4 border-white animate-bounce-slow">
+                        <span>🤝</span> {t.joinFriends}
+                    </button>
+
+                    {showFriendsForm && <FriendsModal t={t} onClose={() => setShowFriendsForm(false)} setAlert={setAppAlert} />}
+                    
+                    {showFriends && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"><div className="bg-white dark:bg-gray-900 w-full max-w-2xl max-h-[80vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col relative border border-white/20 animate-pop-in"><div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 flex justify-between items-center text-white"><div><h2 className="text-2xl font-black">الكتاب العجيب 📖</h2><p className="text-sm text-indigo-100 font-medium">حكايات وفيديوهات أصحابنا</p></div><button onClick={() => setShowFriends(false)} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition text-lg font-bold">✕</button></div><div className="p-6 overflow-y-auto flex-1 bg-indigo-50 dark:bg-gray-800"><div className="text-center py-10 space-y-4"><div className="text-6xl animate-pulse">📺</div><h3 className="text-xl font-bold text-gray-700 dark:text-gray-300">قريباً.. فيديوهات أبطالنا!</h3></div></div></div></div>}
+                    
+                    {showUnlock && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"><div className="bg-white dark:bg-gray-900 w-full max-w-md p-6 rounded-3xl relative animate-pop-in shadow-2xl"><button onClick={()=>setShowUnlock(false)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">✕</button><UnlockView onUnlock={handleUnlock} t={t} error={unlockError} processing={verifying} /></div></div>}
                     
                     {alertMessage && <MessageModal message={alertMessage} onClose={() => setAlertMessage(null)} type={alertType} />}
                 </div>

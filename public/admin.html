@@ -5,1185 +5,309 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لوحة تحكم Beجوري - Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- مكتبة QRious -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
-    <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- React & Babel -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
         body { font-family: 'Cairo', sans-serif; background-color: #f3f4f6; }
         .tab-btn { transition: all 0.3s; }
         .tab-btn.active { background-color: #2563eb; color: white; transform: scale(1.05); }
-        .tab-btn.disabled { opacity: 0.6; cursor: not-allowed; background: #e5e7eb; color: #9ca3af; }
-        .glass-panel { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.5); }
-        
-        /* Custom print styles for QR codes */
-        @media print { 
-            .no-print { display: none !important; } 
-            .qr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 30px; } 
-            .qr-card { border: 2px dashed #000; padding: 10px; text-align: center; border-radius: 8px; box-shadow: none; page-break-inside: avoid; } 
-            body { margin: 0; padding: 0; background-color: white; }
-            h1, h2, h3 { margin: 0; }
-            table, th, td { border: 1px solid #000 !important; }
-        }
-        /* Fade-in animation for tab content */
         .animate-fade-in { animation: fadeIn 0.5s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Print Styles */
+        @media print { 
+            .no-print { display: none !important; } 
+            .qr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 20px; } 
+            .qr-card { border: 2px dashed #000; padding: 10px; text-align: center; page-break-inside: avoid; } 
+        }
     </style>
 </head>
 <body class="p-4 md:p-8 text-gray-800">
     <div id="root"></div>
 
     <script type="text/babel">
-        // ✅ بيانات Supabase (Service Role)
         const SUPABASE_URL = "https://ozdnyepxfcjzldpkteau.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZG55ZXB4ZmNqemxkcGt0ZWF1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDEwNTM3MiwiZXhwIjoyMDc5NjgxMzcyfQ.mtqFcdRZeidpC0Ul8r_8FJOJalToT4lZeHNqd3-fsOg";
-        
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let adminPassword = "123";
         let internalPassword = "456";
-        
-        let currentCodeType = 'unused';
-        let fetchedCodes = [];
-        
-        const BACKUP_PASSWORDS = ["Admin@2025", "BeJouri#Hero", "Jesus#Love"];
+        const BACKUP_PASSWORDS = ["Admin@2025"];
 
-        // Utility function to compress and optimize images before upload
-        function compressImage(file) {
-            return new Promise((resolve) => {
-                const reader = new FileReader(); reader.readAsDataURL(file);
-                reader.onload = (event) => {
-                    const img = new Image(); img.src = event.target.result;
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
-                        const maxWidth = 1000; let width = img.width; let height = img.height;
-                        if (width > maxWidth) { height = Math.round(height * maxWidth / width); width = maxWidth; }
-                        canvas.width = width; canvas.height = height;
-                        ctx.drawImage(img, 0, 0, width, height);
-                        canvas.toBlob((blob) => { resolve(new File([blob], file.name, { type: 'image/jpeg' })); }, 'image/jpeg', 0.7);
-                    };
-                };
-            });
-        }
+        // Utility Functions
+        function compressImage(file) { return new Promise((r) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = (e) => { const img = new Image(); img.src = e.target.result; img.onload = () => { const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); const w = Math.min(img.width, 1000); const h = img.height * (w / img.width); canvas.width = w; canvas.height = h; ctx.drawImage(img, 0, 0, w, h); canvas.toBlob((b) => r(new File([b], file.name, { type: 'image/jpeg' })), 'image/jpeg', 0.7); }; }; }); }
+        async function uploadFile(file) { if (!file) return null; const compressed = await compressImage(file); const name = `${Date.now()}_${Math.random().toString(36).substring(2)}.jpg`; const { error } = await supabase.storage.from('images').upload(name, compressed); if (error) throw error; return supabase.storage.from('images').getPublicUrl(name).data.publicUrl; }
+        async function generateCodesLogic(issueId, count) { const c = []; for(let i=0; i<count; i++) c.push({code: `BJ-${issueId}-${Math.floor(10000+Math.random()*90000)}`, issue_id: parseInt(issueId)}); await supabase.from('codes').insert(c); }
+        const generateQrDataUrl = (value) => { if(!window.QRious) return ''; const c = document.createElement('canvas'); new QRious({element: c, value, size: 120}); return c.toDataURL(); };
 
-        // Utility function to upload a file to Supabase storage
-        async function uploadFile(file) {
-            if (!file) return null;
-            const compressed = await compressImage(file);
-            const fileExtension = compressed.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExtension}`;
-            const { error } = await supabase.storage.from('images').upload(fileName, compressed, { cacheControl: '3600', upsert: false });
-            if (error) throw error;
-            
-            const { data: urlData } = supabase.storage.from('images').getPublicUrl(fileName);
-            return urlData.publicUrl;
-        }
-
-        // Utility function for code generation logic
-        async function generateCodesLogic(issueId, count) {
-            if (!issueId || !count || isNaN(parseInt(issueId)) || isNaN(parseInt(count))) {
-                throw new Error("أدخل رقم العدد وعدد الأكواد كأرقام صحيحة.");
-            }
-            const issueNum = parseInt(issueId);
-            const codeCount = parseInt(count);
-
-            if (codeCount > 1000) throw new Error("لا يمكن توليد أكثر من 1000 كود في المرة الواحدة.");
-
-            const codes = [];
-            for (let i = 0; i < codeCount; i++) {
-                const randomSuffix = Math.floor(10000 + Math.random() * 90000);
-                codes.push({ 
-                    code: `BJ-${issueNum}-${randomSuffix}`, 
-                    issue_id: issueNum, 
-                    used: false 
-                });
-            }
-
-            const { error } = await supabase.from('codes').insert(codes);
-            if (error) {
-                console.error("Supabase Insert Error in generateCodesLogic:", error.message);
-                throw new Error(`فشل إدخال الأكواد: ${error.message}`);
-            }
-            return codes.length;
-        }
-        
-        // Utility function for QR code generation
-        const generateQrDataUrl = (value, size = 120) => {
-            if (!window.QRious) return 'https://placehold.co/120x120/f00/fff?text=Error';
-            const tempCanvas = document.createElement('canvas');
-            new window.QRious({
-                element: tempCanvas,
-                value: value,
-                size: size, 
-                padding: 10,
-            });
-            return tempCanvas.toDataURL('image/png');
-        };
-
-        // --- Components ---
-        
         function LoginView({ onLogin }) {
             const [pass, setPass] = React.useState('');
-            const handleLogin = () => { 
-                if (pass === adminPassword || BACKUP_PASSWORDS.includes(pass)) {
-                    onLogin(true); 
-                } else {
-                    document.getElementById('root').innerHTML = `
-                        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                            <div class="bg-white p-8 rounded-xl shadow-2xl text-center max-w-sm">
-                                <div class="text-4xl mb-4 text-red-500">❌</div>
-                                <p class="text-xl font-bold mb-4">كلمة السر خاطئة</p>
-                                <button onclick="window.location.reload()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold">حاول مرة أخرى</button>
-                            </div>
-                        </div>
-                    `;
-                    setPass('');
-                }
-            };
-            return (<div className="h-screen flex items-center justify-center bg-gray-100"><div className="bg-white p-8 rounded-2xl shadow-xl w-96 text-center border-t-4 border-blue-600"><h2 className="text-3xl font-bold mb-6 text-gray-800">🔐 دخول الأدمن </h2><input type="password" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => {if (e.key === 'Enter') handleLogin()}} className="w-full p-4 border-2 border-gray-200 rounded-xl mb-4 outline-none" placeholder="كلمة السر"/><button onClick={handleLogin} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl w-full transition">دخول</button></div></div>);
+            return <div className="h-screen flex items-center justify-center"><div className="bg-white p-8 rounded-xl shadow-xl text-center border-t-4 border-blue-600"><h2 className="text-2xl font-bold mb-4">🔐 الأدمن</h2><input type="password" value={pass} onChange={e=>setPass(e.target.value)} className="border p-2 rounded w-full mb-4" placeholder="كلمة السر"/><button onClick={()=>{if(pass===adminPassword||BACKUP_PASSWORDS.includes(pass)) onLogin(true); else alert('خطأ');}} className="bg-blue-600 text-white px-4 py-2 rounded w-full">دخول</button></div></div>;
         }
 
-        function InternalLockView({ onUnlock }) {
-            const [pass, setPass] = React.useState('');
-            const checkPass = () => { 
-                if (pass === internalPassword || BACKUP_PASSWORDS.includes(pass)) { 
-                    onUnlock(); 
-                } else { 
-                    console.error('كلمة المرور الداخلية غير صحيحة 🔒'); 
-                    setPass(''); 
-                } 
-            };
-            return (<div className="flex flex-col items-center justify-center h-full p-10 text-center animate-fade-in"><div className="bg-white p-10 rounded-3xl shadow-2xl border border-red-100 max-w-md w-full"><div className="text-6xl mb-4">🛡️</div><h2 className="text-2xl font-black text-gray-800 mb-2">منطقة محمية</h2><p className="text-gray-500 mb-6 text-sm">أدخل الباسورد الداخلي الموحد للوصول</p><input type="password" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => {if (e.key === 'Enter') checkPass()}} className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl mb-4 text-center text-lg font-bold tracking-widest focus:border-red-400 outline-none" placeholder="••••••"/><button onClick={checkPass} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-lg transition transform hover:scale-105">فتح القفل 🔓</button></div></div>);
-        }
+        // --- Tabs ---
 
-        // Component for editing child data
-        function EditChildModal({ child, onClose, refresh }) {
-            const [data, setData] = React.useState({ 
-                full_name: child.full_name, 
-                phone: child.phone, 
-                parent_phone: child.parent_phone, 
-                grade: child.grade, 
-                points: child.points 
-            });
+        function OverviewTab({ refresh }) {
+            const [friends, setFriends] = React.useState([]);
             const [loading, setLoading] = React.useState(false);
-            
-            // NOTE: The unlocked_issues and points_history columns might be missing.
-            // We fetch the data but avoid relying on its existence for the modal structure.
-            const [fullChildData, setFullChildData] = React.useState(child);
-
             React.useEffect(() => {
-                // Fetch full child data including history when modal opens
-                const fetchFullData = async () => {
-                     try {
-                        // Attempt to select columns, will fail if they don't exist
-                        const { data: fullData } = await supabase.from('children')
-                            .select('id, points, points_history, unlocked_issues')
-                            .eq('id', child.id)
-                            .single();
-                        if (fullData) setFullChildData(fullData);
-                    } catch(e) {
-                         // Fallback if columns are missing
-                        console.warn("Could not fetch full child data (points_history/unlocked_issues might be missing):", e);
-                    }
-                };
-                fetchFullData();
-            }, [child.id]);
-
-
-            const handleSave = async () => {
-                setLoading(true);
-                try {
-                    // Update only safe columns
-                    const { error } = await supabase.from('children').update({
-                        full_name: data.full_name,
-                        phone: data.phone,
-                        parent_phone: data.parent_phone,
-                        grade: data.grade,
-                        points: data.points
-                    }).eq('id', child.id);
-
-                    if (error) throw error;
-                    
-                    console.log(`تم تعديل بيانات الطفل ${data.full_name} بنجاح.`);
-                    refresh();
-                    onClose();
-
-                } catch (e) {
-                    console.error("خطأ في حفظ البيانات:", e.message);
-                } finally {
-                    setLoading(false);
-                }
-            };
-            
-            const pointsHistory = fullChildData?.points_history || [];
-            const unlockedIssues = fullChildData?.unlocked_issues || [];
-
+                const f = async () => { setLoading(true); const { data } = await supabase.from('children').select('*').order('created_at', { ascending: false }); setFriends(data || []); setLoading(false); };
+                f();
+            }, [refresh]);
+            const deleteFriend = async (id) => { if(!confirm('حذف؟')) return; await supabase.from('children').delete().eq('id', id); window.location.reload(); };
             return (
-                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white w-full max-w-2xl p-8 rounded-3xl shadow-2xl relative animate-fade-in border-t-4 border-indigo-600">
-                        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">✕</button>
-                        <h2 className="text-2xl font-black text-indigo-800 mb-6 border-b pb-2">✏️ تعديل بيانات: {child.full_name}</h2>
-                        
-                        <div className="grid md:grid-cols-2 gap-6">
-                            {/* General Data */}
-                            <div className="space-y-4">
-                                <div><label className="block text-sm font-bold text-gray-500 mb-1">الاسم بالكامل</label><input value={data.full_name} onChange={e=>setData({...data, full_name: e.target.value})} className="w-full p-3 border rounded-xl"/></div>
-                                <div><label className="block text-sm font-bold text-gray-500 mb-1">هاتف الطفل</label><input type="tel" value={data.phone} onChange={e=>setData({...data, phone: e.target.value})} className="w-full p-3 border rounded-xl"/></div>
-                                <div><label className="block text-sm font-bold text-gray-500 mb-1">هاتف ولي الأمر</label><input type="tel" value={data.parent_phone} onChange={e=>setData({...data, parent_phone: e.target.value})} className="w-full p-3 border rounded-xl"/></div>
-                                <div><label className="block text-sm font-bold text-gray-500 mb-1">الصف</label><select value={data.grade} onChange={e=>setData({...data, grade: e.target.value})} className="w-full p-3 border rounded-xl"><option>الصف الأول الابتدائي</option><option>الصف الثاني الابتدائي</option><option>الصف الثالث الابتدائي</option><option>الصف الرابع الابتدائي</option><option>الصف الخامس الابتدائي</option><option>الصف السادس الابتدائي</option></select></div>
-                                <div><label className="block text-sm font-bold text-gray-500 mb-1">النقاط الإجمالية ⭐</label><input type="number" value={data.points} onChange={e=>setData({...data, points: parseInt(e.target.value) || 0})} className="w-full p-3 border rounded-xl font-black text-xl text-orange-600"/></div>
-                            </div>
-                            
-                            {/* Points History */}
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-bold text-indigo-800">سجل النقاط ({pointsHistory.length})</h3>
-                                <div className="bg-gray-50 p-3 rounded-xl max-h-64 overflow-y-auto border">
-                                    {pointsHistory.length === 0 ? (
-                                        <p className="text-gray-500 text-center py-5">لا يوجد سجل نقاط لهذا الطفل. (أو الأعمدة مفقودة)</p>
-                                    ) : (
-                                        pointsHistory.map((log, index) => (
-                                            <div key={index} className={`flex justify-between p-2 mb-1 rounded-lg ${log.points > 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                                                <span className="text-xs font-bold text-gray-700">{log.action}</span>
-                                                <span className={`text-xs font-black ${log.points > 0 ? 'text-green-700' : 'text-red-700'}`}>{log.points > 0 ? `+${log.points}` : log.points}</span>
-                                                <span className="text-xs text-gray-500">{new Date(log.timestamp).toLocaleDateString('ar-EG')}</span>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                                <h3 className="text-lg font-bold text-indigo-800 mt-4">الأعداد المفتوحة ({unlockedIssues.length})</h3>
-                                <div className="bg-gray-50 p-3 rounded-xl max-h-20 overflow-y-auto border">
-                                    {unlockedIssues.length === 0 ? (
-                                        <p className="text-gray-500 text-center py-2 text-sm">لم يفتح أي عدد بعد. (أو الأعمدة مفقودة)</p>
-                                    ) : (
-                                        <div className="flex flex-wrap gap-2">
-                                            {unlockedIssues.map(issueId => (
-                                                <span key={issueId} className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                                                    #{issueId}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        <button onClick={handleSave} disabled={loading} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition mt-6">
-                            {loading ? "جاري الحفظ..." : "حفظ التعديلات"}
-                        </button>
-                    </div>
+                <div className="space-y-6 animate-fade-in">
+                    <div className="bg-white p-6 rounded-2xl shadow border-t-4 border-indigo-500 text-center"><h3 className="font-bold text-gray-600">أصدقاء المجلة المسجلين</h3><div className="text-4xl font-black text-indigo-600">{friends.length}</div></div>
+                    <div className="bg-white p-6 rounded-2xl shadow"><h3 className="font-bold text-xl mb-4">📋 بيانات الأصدقاء</h3><div className="overflow-x-auto"><table className="w-full text-right text-sm"><thead className="bg-gray-100"><tr><th className="p-3">الاسم</th><th className="p-3">الصف</th><th className="p-3">رقم التليفون</th><th className="p-3">الموهبة</th><th className="p-3">حذف</th></tr></thead><tbody>{loading ? <tr><td colSpan="5" className="p-4 text-center">...</td></tr> : friends.map(f => (<tr key={f.id} className="border-b hover:bg-gray-50"><td className="p-3 font-bold">{f.full_name}</td><td className="p-3">{f.grade}</td><td className="p-3 font-mono">{f.phone}</td><td className="p-3 text-purple-600 font-bold">{f.talent}</td><td className="p-3"><button onClick={()=>deleteFriend(f.id)} className="text-red-500">🗑️</button></td></tr>))}</tbody></table></div></div>
                 </div>
             );
         }
 
-
-        // --- ✅ تبويب الإحصائيات (OverviewTab) ---
-        function OverviewTab({ config, refresh }) {
-            const [children, setChildren] = React.useState([]);
-            const [gradeFilter, setGradeFilter] = React.useState("all");
-            const [selectedChildren, setSelectedChildren] = React.useState(new Set());
-            const [loadingChildren, setLoadingChildren] = React.useState(false);
-            const [childToEdit, setChildToEdit] = React.useState(null);
-            
-            const showChildrenDB = config?.enableChildLogin;
-
-            // Fetch children data
+        function ContestResultsTab({ refresh }) {
+            const [results, setResults] = React.useState([]);
+            const [loading, setLoading] = React.useState(false);
             React.useEffect(() => {
-                if (!showChildrenDB) return;
-                const fetchChildren = async () => {
-                    setLoadingChildren(true);
-                    // IMPORTANT: Fetch only stable columns to prevent dashboard crash if points_history/unlocked_issues are missing
-                    const { data } = await supabase.from('children').select('id, full_name, phone, parent_phone, grade, points').order('points', { ascending: false });
-                    if (data) setChildren(data);
-                    setLoadingChildren(false);
-                };
-                fetchChildren();
-            }, [showChildrenDB, refresh]);
-
-            const filteredChildren = React.useMemo(() => {
-                return gradeFilter === "all" ? children : children.filter(c => c.grade === gradeFilter);
-            }, [children, gradeFilter]);
-            
-            const toggleChildSelection = (id) => {
-                setSelectedChildren(prev => {
-                    const newSet = new Set(prev);
-                    if (newSet.has(id)) {
-                        newSet.delete(id);
-                    } else {
-                        newSet.add(id);
-                    }
-                    return newSet;
-                });
-            };
-
-            const deleteAllChildren = async () => {
-                if (!window.confirm(`تحذير خطير: هل أنت متأكد من حذف جميع بيانات الأطفال المسجلين (${children.length})؟ هذا الإجراء لا يمكن التراجع عنه!`)) {
-                    return;
-                }
-                
-                try {
-                    setLoadingChildren(true);
-                    const { error } = await supabase.from('children').delete().not('id', 'is', null);
-                    
-                    if (error) throw error;
-                    
-                    setChildren([]);
-                    setSelectedChildren(new Set());
-                    console.log(`تم حذف جميع سجلات الأطفال بنجاح.`);
-                    refresh();
-                } catch (e) {
-                    console.error("خطأ في حذف البيانات:", e.message);
-                } finally {
-                    setLoadingChildren(false);
-                }
-            };
-            
-            const deleteSelectedChildren = async () => {
-                const ids = Array.from(selectedChildren);
-                if (ids.length === 0) return console.warn("الرجاء تحديد سجل واحد على الأقل للحذف.");
-
-                if (!window.confirm(`هل أنت متأكد من حذف ${ids.length} سجل محدد؟ هذا الإجراء لا يمكن التراجع عنه!`)) {
-                    return;
-                }
-
-                try {
-                    setLoadingChildren(true);
-                    const { error } = await supabase.from('children').delete().in('id', ids); 
-                    
-                    if (error) throw error;
-                    
-                    setSelectedChildren(new Set());
-                    console.log(`تم حذف ${ids.length} سجل محدد بنجاح!`);
-                    refresh();
-                } catch (e) {
-                    console.error("خطأ في حذف السجلات المحددة:", e.message);
-                } finally {
-                    setLoadingChildren(false);
-                }
-            };
-
-
-            const printChildren = () => {
-                const printWindow = window.open('', '_blank');
-                printWindow.document.write('<html><head><title>طباعة أصدقاء جوري</title><style>body{font-family:"Cairo", sans-serif; direction:rtl; margin: 30px;} table{width:100%; border-collapse:collapse; margin-top: 20px;} th,td{border:1px solid #000; padding:12px; text-align:center; font-size: 14px;} h1 { text-align: center; color: #1e3a8a; } th { background-color: #f3f4f6; } </style></head><body>');
-                printWindow.document.write(`<h1>قائمة أصدقاء جوري: ${gradeFilter === 'all' ? 'الكل' : gradeFilter} (${filteredChildren.length} بطل)</h1>`);
-                printWindow.document.write('<table><thead><tr><th>الاسم</th><th>الصف</th><th>هاتف الطفل</th><th>هاتف ولي الأمر</th><th>النقاط ⭐</th></tr></thead><tbody>');
-                filteredChildren.forEach(c => {
-                    printWindow.document.write(`<tr><td>${c.full_name}</td><td>${c.grade}</td><td>${c.phone}</td><td>${c.parent_phone}</td><td>${c.points}</td></tr>`);
-                });
-                printWindow.document.write('</tbody></table></body></html>');
-                printWindow.document.close();
-                printWindow.focus();
-                setTimeout(() => { printWindow.print(); }, 500);
-            };
-
+                const fetchResults = async () => { setLoading(true); const { data } = await supabase.from('contest_submissions').select('*').order('created_at', { ascending: false }); if (data) setResults(data); setLoading(false); };
+                fetchResults();
+            }, [refresh]);
+            const deleteResult = async (id) => { if(!confirm('حذف؟')) return; await supabase.from('contest_submissions').delete().eq('id', id); setResults(p => p.filter(r => r.id !== id)); };
             return (
-                <div className="space-y-8 animate-fade-in">
-                    {/* childToEdit will trigger a fetch of the full child data inside the modal */}
-                    {childToEdit && <EditChildModal child={childToEdit} onClose={() => setChildToEdit(null)} refresh={refresh} />}
-                    
-                    <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6 no-print">
-                        {showChildrenDB && (
-                            <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-100 flex flex-col justify-center items-center text-center lg:col-span-1">
-                                <div className="text-5xl mb-4">🎓</div>
-                                <h3 className="text-2xl font-bold text-gray-800 mb-2">قاعدة بيانات جوري</h3>
-                                {loadingChildren ? (
-                                    <div className="text-4xl font-black text-indigo-600 animate-pulse">...</div>
-                                ) : (
-                                    <div className="text-4xl font-black text-indigo-600">{children.length}</div>
-                                )}
-                                <p className="text-gray-500">جوري مسجل في التطبيق</p>
-                            </div>
-                        )}
-                        
-                        {showChildrenDB && (
-                            <div className="bg-white rounded-3xl p-8 shadow-lg border border-gray-100 flex flex-col justify-center items-center text-center lg:col-span-1">
-                                <div className="text-5xl mb-4 text-orange-500">🏆</div>
-                                <h3 className="text-2xl font-bold text-gray-800 mb-2">الأبطال المفلترون</h3>
-                                {loadingChildren ? (
-                                    <div className="text-4xl font-black text-orange-600 animate-pulse">...</div>
-                                ) : (
-                                    <div className="text-4xl font-black text-orange-600">{filteredChildren.length}</div>
-                                )}
-                                <p className="text-gray-500">بناءً على اختيار الصف</p>
-                            </div>
-                        )}
-                        {!showChildrenDB && (
-                            <div className="bg-gradient-to-br from-gray-200 to-gray-100 rounded-3xl p-8 text-gray-600 shadow-xl relative overflow-hidden lg:col-span-2">
-                                <div className="relative z-10 text-center">
-                                    <div className="text-4xl mb-3">🚫</div>
-                                    <h3 className="text-xl font-bold">بوابة تسجيل الأطفال مُعطلة</h3>
-                                    <p className="text-sm opacity-80 mt-1">قم بتفعيلها من الإعدادات لعرض البيانات.</p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {showChildrenDB && (
-                        <div className="bg-white p-6 rounded-2xl shadow-lg border-t-4 border-orange-500 animate-fade-in">
-                            <div className="flex flex-wrap justify-between items-center mb-6 gap-4 no-print">
-                                <h3 className="text-xl font-bold text-gray-800">📋 سجل أصدقاء جوري</h3>
-                                <div className="flex flex-wrap gap-2 items-center">
-                                    <select value={gradeFilter} onChange={e=>setGradeFilter(e.target.value)} className="p-3 border rounded-xl bg-gray-50 font-bold appearance-none">
-                                        <option value="all">كل الصفوف</option>
-                                        <option>الصف الأول الابتدائي</option>
-                                        <option>الصف الثاني الابتدائي</option>
-                                        <option>الصف الثالث الابتدائي</option>
-                                        <option>الصف الرابع الابتدائي</option>
-                                        <option>الصف الخامس الابتدائي</option>
-                                        <option>الصف السادس الابتدائي</option>
-                                    </select>
-                                    <button onClick={printChildren} className="bg-gray-800 text-white px-4 py-3 rounded-xl font-bold hover:bg-black transition">🖨️ طباعة</button>
-                                    
-                                    <button onClick={deleteSelectedChildren} disabled={loadingChildren || selectedChildren.size === 0} className={`text-white px-4 py-3 rounded-xl font-bold transition ${loadingChildren || selectedChildren.size === 0 ? 'bg-red-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}>
-                                        ❌ حذف المحدد ({selectedChildren.size})
-                                    </button>
-                                    
-                                    <button onClick={deleteAllChildren} disabled={loadingChildren || children.length === 0} className={`text-white px-4 py-3 rounded-xl font-bold transition ${loadingChildren || children.length === 0 ? 'bg-red-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}>
-                                        🗑️ حذف قاعدة بيانات جوري
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div className="overflow-x-auto rounded-xl border">
-                                <table className="w-full text-sm text-right">
-                                    <thead className="bg-gray-100 text-gray-600 uppercase font-extrabold tracking-wider">
-                                        <tr>
-                                            <th className="p-4 rounded-r-xl">تحديد</th>
-                                            <th className="p-4">الاسم</th>
-                                            <th className="p-4">الصف</th>
-                                            <th className="p-4">هاتف الطفل</th>
-                                            <th className="p-4">هاتف ولي الأمر</th>
-                                            <th className="p-4">النقاط ⭐</th>
-                                            <th className="p-4 rounded-l-xl">تحكم</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {loadingChildren ? (
-                                            <tr><td colSpan="7" className="p-8 text-center text-blue-500 font-bold animate-pulse">جاري تحميل بيانات الأبطال...</td></tr>
-                                        ) : filteredChildren.length === 0 ? (
-                                            <tr><td colSpan="7" className="p-8 text-center text-gray-400">لا توجد بيانات مطابقة لمعايير التصفية.</td></tr>
-                                        ) : (
-                                            filteredChildren.map(child => (
-                                                <tr key={child.id} className="hover:bg-gray-50">
-                                                    <td className="p-4 text-center">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={selectedChildren.has(child.id)} 
-                                                            onChange={() => toggleChildSelection(child.id)} 
-                                                            className="w-5 h-5 accent-red-600 cursor-pointer"
-                                                        />
-                                                    </td>
-                                                    <td className="p-4 font-extrabold text-gray-800 whitespace-nowrap">{child.full_name}</td>
-                                                    <td className="p-4 text-gray-500 whitespace-nowrap">{child.grade}</td>
-                                                    <td className="p-4 font-mono text-left whitespace-nowrap">{child.phone}</td>
-                                                    <td className="p-4 font-mono text-left whitespace-nowrap">{child.parent_phone}</td>
-                                                    <td className="p-4 font-black text-orange-600 whitespace-nowrap">{child.points}</td>
-                                                    <td className="p-4 whitespace-nowrap">
-                                                        <button onClick={() => setChildToEdit(child)} className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-lg font-bold hover:bg-indigo-100 transition">تعديل ✏️</button>
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    )}
+                <div className="bg-white p-6 rounded-2xl shadow animate-fade-in border-t-4 border-purple-500">
+                    <h3 className="font-bold text-xl mb-4 text-purple-800">🏆 نتائج المسابقات ({results.length})</h3>
+                    <div className="overflow-x-auto"><table className="w-full text-right text-sm"><thead className="bg-purple-50"><tr><th className="p-3">الاسم</th><th className="p-3">رقم التليفون</th><th className="p-3">العدد</th><th className="p-3">النتيجة</th><th className="p-3">التاريخ</th><th className="p-3">حذف</th></tr></thead><tbody>{loading ? <tr><td colSpan="6" className="p-4">...</td></tr> : results.map(r => (<tr key={r.id} className="border-b"><td className="p-3 font-bold">{r.student_name}</td><td className="p-3 font-mono">{r.student_phone}</td><td className="p-3">#{r.issue_id}</td><td className="p-3 font-black text-green-600">{r.score}/{r.total}</td><td className="p-3 text-gray-500">{new Date(r.created_at).toLocaleDateString('ar-EG')}</td><td className="p-3"><button onClick={()=>deleteResult(r.id)} className="text-red-500">❌</button></td></tr>))}</tbody></table></div>
                 </div>
             );
         }
 
-        // Component for Magazine Issues Management
         function IssuesTab({ issues, refresh }) {
-            const [issueData, setIssueData] = React.useState({ id: '', title: '', date: '', magUrl: '', verseText: '', verseRef: '', isFree: false, backgroundUrl: '', backgroundFile: null, videos: [{ title: '', url: '' }] });
-            const [loading, setLoading] = React.useState(false);
+            const [issueData, setIssueData] = React.useState({ id: '', title: '', date: '', magUrl: '', verseText: '', verseRef: '', isFree: false, backgroundUrl: '', backgroundFile: null, videos: [{ title: '', url: '' }], contestQuestions: [], hideMagazine: false });
             const [editingId, setEditingId] = React.useState(null);
+            const [loading, setLoading] = React.useState(false);
 
+            const handleAddQuestion = () => setIssueData(p => ({ ...p, contestQuestions: [...p.contestQuestions, { question: '', answer: '', options: '' }] }));
+            const handleQChange = (i, field, val) => { const q = [...issueData.contestQuestions]; q[i][field] = val; setIssueData(p => ({ ...p, contestQuestions: q })); };
+            const handleRemoveQ = (i) => setIssueData(p => ({ ...p, contestQuestions: p.contestQuestions.filter((_, idx) => idx !== i) }));
             const handleAddVideo = () => setIssueData(p => ({ ...p, videos: [...p.videos, { title: '', url: '' }] }));
-            const handleVideoChange = (index, field, value) => { const newVideos = [...issueData.videos]; newVideos[index][field] = value; setIssueData(p => ({ ...p, videos: newVideos })); };
-            
+            const handleVideoChange = (i, field, val) => { const v = [...issueData.videos]; v[i][field] = val; setIssueData(p => ({ ...p, videos: v })); };
+
             const startEdit = (issue) => { 
                 setEditingId(issue.id); 
-                setIssueData({ 
-                    id: issue.id, 
-                    title: issue.title?.ar || '', 
-                    date: issue.date?.ar || '', 
-                    magUrl: issue.magazine_url || '', 
-                    verseText: issue.verse?.text || '', 
-                    verseRef: issue.verse?.ref || '', 
-                    isFree: issue.is_free || false, 
-                    backgroundUrl: issue.background || '', 
-                    backgroundFile: null, 
-                    videos: issue.videos && issue.videos.length > 0 ? issue.videos : [{ title: '', url: '' }] 
-                }); 
+                const questions = (issue.contest || []).map(q => ({ ...q, options: Array.isArray(q.options) ? q.options.join(',') : (q.options || '') }));
+                setIssueData({ id: issue.id, title: issue.title?.ar, date: issue.date?.ar, magUrl: issue.magazine_url, verseText: issue.verse?.text, verseRef: issue.verse?.ref, isFree: issue.is_free, backgroundUrl: issue.background, backgroundFile: null, videos: issue.videos || [], contestQuestions: questions, hideMagazine: issue.hide_magazine }); 
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             };
 
-            const cancelEdit = () => { 
-                setEditingId(null); 
-                setIssueData({ id: '', title: '', date: '', magUrl: '', verseText: '', verseRef: '', isFree: false, backgroundUrl: '', backgroundFile: null, videos: [{ title: '', url: '' }] }); 
-            };
-
-            // FIX: Ensure all required fields are present and handle insertion/update carefully.
-            const saveIssue = async () => { 
-                setLoading(true); 
-                try { 
-                    if (!issueData.id || !issueData.title || !issueData.date || !issueData.magUrl) {
-                        throw new Error("يجب كتابة رقم العدد، العنوان، التاريخ، ورابط المجلة.");
-                    }
-
-                    let finalBgUrl = issueData.backgroundUrl;
-                    
-                    if (issueData.backgroundFile) {
-                        finalBgUrl = await uploadFile(issueData.backgroundFile);
-                        console.log('تم رفع الصورة بنجاح.');
-                    }
-
-                    const issuePayload = { 
-                        title: { ar: issueData.title }, 
-                        date: { ar: issueData.date }, 
-                        magazine_url: issueData.magUrl, 
-                        is_free: issueData.isFree, 
-                        verse: { text: issueData.verseText, ref: issueData.verseRef }, 
-                        videos: issueData.videos.filter(v => v.title && v.url),
-                        background: finalBgUrl || ''
-                    }; 
-                    
-                    let error; 
-                    if (editingId) { 
-                        // Update
-                        const { error: updateError } = await supabase.from('issues').update(issuePayload).eq('id', editingId); 
-                        error = updateError; 
-                    } else { 
-                        // Insert
-                        issuePayload.id = issueData.id; 
-                        const { error: insertError } = await supabase.from('issues').insert([issuePayload]); 
-                        error = insertError; 
-                    } 
-                    
-                    if (error) {
-                        console.error('خطأ Supabase:', error.message);
-                        throw new Error(`فشل النشر/التعديل: ${error.message}`);
-                    } 
-
-                    console.log(editingId ? 'تم التعديل بنجاح! ✅' : 'تم النشر بنجاح! ✅');
-                    
-                    cancelEdit(); 
-                    refresh(); 
-                } catch (e) { 
-                    console.error('خطأ عام:', e.message);
-                    alert(`فشل العملية: ${e.message}`); // Using alert to notify admin of critical failure
-                } finally { 
-                    setLoading(false); 
-                } 
-            };
-
-            const deleteIssue = async (id) => { 
-                if (!window.confirm(`هل أنت متأكد من حذف العدد #${id}؟ لن يمكن التراجع عن هذا الإجراء.`)) return;
-
-                const { error } = await supabase.from('issues').delete().eq('id', id); 
-                if (error) console.error('خطأ في الحذف:', error.message); 
-                else refresh(); 
-            };
-
-            return (
-                <div className="grid lg:grid-cols-3 gap-8 animate-fade-in">
-                    {/* Issue Management Form */}
-                    <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-lg border-t-4 border-blue-600 h-fit">
-                        <h2 className="font-bold text-xl mb-4 text-blue-800">{editingId ? `✏️ تعديل العدد #${editingId}` : '➕ إضافة عدد جديد'}</h2>
-                        <div className="space-y-4">
-                            <input value={issueData.id} onChange={e => setIssueData(p => ({ ...p, id: e.target.value }))} type="number" pattern="\d*" inputMode="numeric" placeholder="رقم العدد (ID)" disabled={!!editingId} className={`w-full p-3 border rounded-xl bg-gray-50 ${editingId ? 'opacity-50 cursor-not-allowed' : ''}`}/>
-                            <input value={issueData.title} onChange={e => setIssueData(p => ({ ...p, title: e.target.value }))} placeholder="العنوان" className="w-full p-3 border rounded-xl bg-gray-50"/>
-                            <input value={issueData.date} onChange={e => setIssueData(p => ({ ...p, date: e.target.value }))} placeholder="التاريخ" className="w-full p-3 border rounded-xl bg-gray-50"/>
-                            <input value={issueData.magUrl} onChange={e => setIssueData(p => ({ ...p, magUrl: e.target.value }))} placeholder="رابط المجلة (FlipHTML5)" className="w-full p-3 border rounded-xl bg-gray-50"/>
-                            
-                            {/* Bible Verse Section */}
-                            <div className="bg-yellow-50 p-3 rounded-xl border border-yellow-200">
-                                <label className="block text-sm font-bold mb-2 text-yellow-700">الآية المرافقة:</label>
-                                <textarea value={issueData.verseText} onChange={e => setIssueData(p => ({ ...p, verseText: e.target.value }))} placeholder="نص الآية" className="w-full mb-2 p-2 rounded border resize-none h-20 text-sm"/>
-                                <input value={issueData.verseRef} onChange={e => setIssueData(p => ({ ...p, verseRef: e.target.value }))} placeholder="الشاهد (مثال: يوحنا 3: 16)" className="w-full p-2 rounded border text-sm"/>
-                            </div>
-                            
-                            {/* Videos Section */}
-                            <div className="border-t pt-3">
-                                <label className="block text-sm font-bold mb-2">فيديوهات العدد (خاصة):</label>
-                                <div className="space-y-2">
-                                    {issueData.videos.map((video, index) => (
-                                        <div key={index} className="flex gap-2 video-row">
-                                            <input value={video.title} onChange={e => handleVideoChange(index, 'title', e.target.value)} placeholder="عنوان" className="w-1/2 p-2 border rounded text-sm"/>
-                                            <input value={video.url} onChange={e => handleVideoChange(index, 'url', e.target.value)} placeholder="رابط" className="w-1/2 p-2 border rounded text-sm"/>
-                                        </div>
-                                    ))}
-                                </div>
-                                <button onClick={handleAddVideo} className="text-blue-600 text-sm font-bold mt-2 hover:underline">+ فيديو آخر</button>
-                            </div>
-                            
-                            {/* Cover Image Upload/URL */}
-                            <div className="space-y-2 bg-gray-50 p-3 rounded-xl border">
-                                <label className="block text-sm font-bold mb-1">صورة الغلاف (أولوية الرفع على الرابط):</label>
-                                <input value={issueData.backgroundUrl} onChange={e => { setIssueData(p => ({ ...p, backgroundUrl: e.target.value })); setIssueData(p => ({...p, backgroundFile: null})); }} placeholder="1. رابط URL مباشر للصورة" className="w-full p-2 border rounded text-sm mb-2"/>
-                                <input type="file" onChange={e => { setIssueData(p => ({ ...p, backgroundFile: e.target.files[0], backgroundUrl: '' })); }} className="w-full text-sm p-2 border rounded-xl bg-white"/>
-                            </div>
-
-                            
-                            {/* Free Issue Checkbox */}
-                            <div className="bg-green-50 p-3 rounded-xl flex items-center gap-2 border border-green-200">
-                                <input type="checkbox" checked={issueData.isFree} onChange={e => setIssueData(p => ({ ...p, isFree: e.target.checked }))} className="w-5 h-5 accent-green-600"/>
-                                <label className="font-bold text-sm text-green-800">🔓 عدد مجاني (يمكن قراءته بدون كود)</label>
-                            </div>
-                            
-                            {/* Action Buttons */}
-                            <div className="flex gap-2">
-                                <button onClick={saveIssue} disabled={loading} className={`flex-1 text-white py-3 rounded-xl font-bold shadow-lg transition ${editingId ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                                    {loading ? 'جاري الحفظ...' : (editingId ? 'حفظ التعديلات 💾' : 'نشر العدد 🚀')}
-                                </button>
-                                {editingId && (
-                                    <button onClick={cancelEdit} className="px-4 py-3 bg-gray-300 rounded-xl font-bold hover:bg-gray-400">إلغاء</button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {/* Issues List */}
-                    <div className="lg:col-span-2 space-y-4">
-                        <h2 className="font-bold text-2xl mb-4 text-gray-800">📚 الأعداد المنشورة ({issues.length})</h2>
-                        {issues.map(i => (
-                            <div key={i.id} className={`bg-white p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center border-r-8 hover:shadow-md transition ${i.is_free ? 'border-green-500' : 'border-blue-500'}`}>
-                                <div>
-                                    <div className="font-bold text-lg text-gray-800">#{i.id} - {i.title.ar} {i.is_free ? '🎁' : '🔒'}</div>
-                                    <div className="text-sm text-gray-500">{i.date.ar}</div>
-                                </div>
-                                <div className="flex gap-2 mt-3 sm:mt-0">
-                                    <button onClick={() => startEdit(i)} className="bg-yellow-50 text-yellow-600 px-4 py-2 rounded-lg font-bold border border-yellow-200 hover:bg-yellow-500 hover:text-white transition whitespace-nowrap">تعديل ✏️</button>
-                                    <button onClick={() => deleteIssue(i.id)} className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-bold border border-red-200 hover:bg-red-600 hover:text-white transition whitespace-nowrap">حذف</button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-        }
-
-        // Component for Amazing Book Videos Management
-        function AmazingBookTab() {
-            const [videos, setVideos] = React.useState([]); 
-            const [newVideos, setNewVideos] = React.useState([{ title_ar: '', url: '' }]);
-            const [loading, setLoading] = React.useState(false);
-
-            const fetchVideos = React.useCallback(async () => { 
-                const { data } = await supabase.from('amazing_book_videos').select('*').order('created_at', { ascending: false }); 
-                setVideos(data || []); 
-            }, []);
-
-            React.useEffect(() => { fetchVideos(); }, [fetchVideos]);
-
-            const handleVideoChange = (index, field, value) => {
-                const updatedVideos = [...newVideos];
-                updatedVideos[index][field] = value;
-                setNewVideos(updatedVideos);
-            };
-
-            const handleAddInput = () => setNewVideos(p => [...p, { title_ar: '', url: '' }]);
-            const handleRemoveInput = (index) => setNewVideos(p => p.filter((_, i) => i !== index));
-
-            const saveVideos = async () => { 
-                setLoading(true); 
-                try { 
-                    const videosToInsert = newVideos.filter(v => v.title_ar && v.url);
-                    if (videosToInsert.length === 0) throw new Error("الرجاء إدخال بيانات فيديو واحد على الأقل.");
-    
-                    const { error } = await supabase.from('amazing_book_videos').insert(videosToInsert); 
-                    if (error) throw error; 
-                    
-                    console.log(`تم إضافة ${videosToInsert.length} فيديو بنجاح! ✅`); 
-                    setNewVideos([{ title_ar: '', url: '' }]);
-                    fetchVideos(); 
-                } catch (e) { 
-                    console.error('خطأ:', e.message); 
-                    alert(`فشل الإضافة: ${e.message}`);
-                } finally { 
-                    setLoading(false); 
-                } 
-            };
-            
-            const deleteVideo = async (id, title) => { 
-                if(!window.confirm(`هل أنت متأكد من حذف فيديو "${title}"؟`)) { 
-                    return; 
-                } 
-                const { error } = await supabase.from('amazing_book_videos').delete().eq('id', id); 
-                if (error) console.error('خطأ في الحذف:', error.message); 
-                else fetchVideos(); 
-            };
-            
-            return (
-                <div className="grid lg:grid-cols-3 gap-8 animate-fade-in">
-                    {/* واجهة إدخال الفيديوهات المتعددة */}
-                    <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-lg border-t-4 border-green-600 h-fit">
-                        <h2 className="font-bold text-xl mb-4 text-green-800">➕ إضافة فيديوهات جديدة</h2>
-                        <div className="space-y-4">
-                            {newVideos.map((video, index) => (
-                                <div key={index} className="flex gap-2 p-3 border rounded-xl bg-gray-50 relative shadow-sm">
-                                    <input 
-                                        value={video.title_ar} 
-                                        onChange={e => handleVideoChange(index, 'title_ar', e.target.value)} 
-                                        placeholder="عنوان الفيديو" 
-                                        className="w-1/2 p-2 border rounded-lg focus:ring-green-500 focus:border-green-500"
-                                    />
-                                    <input 
-                                        value={video.url} 
-                                        onChange={e => handleVideoChange(index, 'url', e.target.value)} 
-                                        placeholder="رابط الفيديو (URL)" 
-                                        className="w-1/2 p-2 border rounded-lg focus:ring-green-500 focus:border-green-500"
-                                    />
-                                    {newVideos.length > 1 && (
-                                        <button 
-                                            onClick={() => handleRemoveInput(index)} 
-                                            className="text-red-500 hover:text-red-700 absolute top-[-10px] left-[-10px] bg-white rounded-full p-1 shadow-md transition transform hover:scale-110"
-                                            title="حذف هذا الفيديو"
-                                        >
-                                            ❌
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
-                            
-                            <button onClick={handleAddInput} className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-bold border border-dashed hover:bg-gray-200 transition">
-                                + إضافة حقل فيديو آخر
-                            </button>
-
-                            <button onClick={saveVideos} disabled={loading || newVideos.filter(v => v.title_ar && v.url).length === 0} className="w-full bg-green-600 text-white py-3 rounded-xl font-bold shadow-lg transition disabled:bg-green-300 hover:bg-green-700">
-                                {loading ? 'جاري الإضافة...' : `إضافة الكل (${newVideos.filter(v => v.title_ar && v.url).length}) 💾`}
-                            </button>
-                        </div>
-                    </div>
-                    
-                    {/* قائمة الفيديوهات الحالية */}
-                    <div className="lg:col-span-2 space-y-4">
-                        <h2 className="font-bold text-2xl mb-4 text-gray-800">🎬 قائمة الفيديوهات المنشورة ({videos.length})</h2>
-                        {videos.map(v => (
-                            <div key={v.id} className="bg-white p-5 rounded-2xl shadow-sm flex justify-between items-center border-r-8 border-green-500 hover:shadow-md transition">
-                                <div>
-                                    <div className="font-bold text-lg text-gray-800">{v.title_ar}</div>
-                                    <div className="text-sm text-gray-500 truncate w-96">{v.url}</div>
-                                </div>
-                                <button onClick={() => deleteVideo(v.id, v.title_ar)} className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-bold border border-red-200 hover:bg-red-600 hover:text-white transition">حذف</button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-        }
-
-        // Component for Code Generation and Management
-        const QRCodeDisplay = ({ value }) => {
-            const canvasRef = React.useRef(null);
-            React.useEffect(() => {
-                if (canvasRef.current && window.QRious) {
-                    const ctx = canvasRef.current.getContext('2d');
-                    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-                    
-                    new window.QRious({
-                        element: canvasRef.current,
-                        value: value,
-                        size: 80,
-                        padding: 10,
-                    });
-                }
-            }, [value]);
-            return <canvas ref={canvasRef} className="w-20 h-20 mx-auto" />;
-        };
-
-        function CodesTab({ refreshIssues }) {
-            const [issueId, setIssueId] = React.useState(''); const [count, setCount] = React.useState(''); const [loading, setLoading] = React.useState(false); const [codes, setCodes] = React.useState([]); const [issuesList, setIssuesList] = React.useState([]);
-            React.useEffect(() => { const fetchList = async () => { const { data } = await supabase.from('issues').select('id, title'); if (data) setIssuesList(data); }; fetchList(); }, [refreshIssues]);
-            const fetchCodesPreview = async () => { 
-                const used = currentCodeType === 'used'; 
-                if (!issueId) return; 
-                const { data } = await supabase.from('codes').select('*').eq('issue_id', issueId).eq('used', used); 
-                fetchedCodes = data || []; 
-                setCodes(fetchedCodes); 
-            };
-
-            const generateCodes = async () => { 
-                setLoading(true); 
-                try { 
-                    if (!issueId || isNaN(parseInt(issueId)) || !count || isNaN(parseInt(count))) {
-                        throw new Error("الرجاء التأكد من إدخال رقم العدد وعدد الأكواد كأرقام صحيحة.");
-                    }
-                    const generatedCount = await generateCodesLogic(issueId, count); 
-                    console.log(`تم توليد ${generatedCount} كود!`); 
-                    fetchCodesPreview(); 
-                } catch(e) { 
-                    console.error('خطأ في التوليد:', e.message);
-                    alert(`فشل التوليد: ${e.message}`);
-                } finally { 
-                    setLoading(false); 
-                } 
-            };
-
-            const deleteDisplayedCodes = async () => { if (codes.length === 0 || !window.confirm(`حذف ${codes.length} كود؟`)) return; const codesToDelete = codes.map(c => c.code); const { error } = await supabase.from('codes').delete().in('code', codesToDelete); if (error) console.error('خطأ في الحذف:', error.message); else { console.log("تم الحذف!"); setCodes([]); } };
-            const switchView = (type) => { currentCodeType = type; fetchCodesPreview(); };
-            
-            const printCurrentView = () => { 
-                if(codes.length === 0) return console.warn("لا توجد أكواد لعرضها أو طباعتها."); 
-                
-                const printWindow = window.open('', '_blank'); 
-                
-                let printContent = `
-                    <html>
-                    <head>
-                        <title>طباعة أكواد QR</title>
-                        <style>
-                            body { font-family: "Cairo", sans-serif; direction: rtl; padding: 20px; } 
-                            .qr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; } 
-                            .qr-card { border: 2px dashed #000; padding: 10px; text-align: center; border-radius: 8px; page-break-inside: avoid; } 
-                            .font-bold { font-weight: 700; } 
-                            .font-mono { font-family: monospace; } 
-                            .text-xs { font-size: 10px; } 
-                            @page { size: A4; margin: 1cm; }
-                        </style>
-                    </head>
-                    <body>
-                        <h1 style="text-align: center;">أكواد QR لـ Beجوري - العدد #${issueId} (${currentCodeType === 'used' ? 'مستخدمة' : 'جديدة'})</h1>
-                        <div class="qr-grid">
-                `;
-                
-                codes.forEach(c => { 
-                    const qrDataUrl = generateQrDataUrl(c.code, 120);
-                    
-                    printContent += `
-                        <div class="qr-card">
-                            <div class="font-bold text-xs mb-1">Beجوري #${c.issue_id}</div>
-                            <img src="${qrDataUrl}" alt="${c.code}" style="width: 120px; height: 120px; display: block; margin: 5px auto;">
-                            <div class="font-mono text-xs mt-1 font-bold">${c.code}</div>
-                        </div>
-                    `;
-                }); 
-                
-                printContent += `
-                        </div>
-                    </body>
-                    </html>
-                `;
-
-                printWindow.document.write(printContent);
-                printWindow.document.close(); 
-                printWindow.focus(); 
-                
-                setTimeout(() => printWindow.print(), 100); 
-            };
-            
-            return (<div className="grid lg:grid-cols-2 gap-8 no-print animate-fade-in">
-                <div className="bg-white p-8 rounded-2xl shadow-lg border-t-4 border-green-500 h-fit">
-                    <h2 className="font-bold text-2xl mb-6 text-gray-800">✨ توليد أكواد</h2>
-                    <input value={issueId} onChange={e => setIssueId(e.target.value)} placeholder="رقم العدد" className="w-full p-4 border rounded-xl mb-4 text-lg"/>
-                    <input value={count} onChange={e => setCount(e.target.value)} type="number" placeholder="عدد الأكواد" className="w-full p-4 border rounded-xl mb-4 text-lg"/>
-                    <button onClick={generateCodes} disabled={loading} className="w-full bg-green-600 text-white py-4 rounded-xl font-bold shadow-lg transition">{loading ? 'جاري التوليد...' : 'توليد وحفظ 💾'}</button>
-                </div>
-                
-                <div className="bg-white p-8 rounded-2xl shadow-lg border-t-4 border-purple-500">
-                    <h2 className="font-bold text-2xl mb-6 text-gray-800">🖨️ إدارة الأكواد</h2>
-                    <div className="flex gap-2 mb-4 bg-gray-100 p-1.5 rounded-xl">
-                        <button onClick={() => switchView('unused')} className={`flex-1 py-3 rounded-lg font-bold text-sm ${currentCodeType === 'unused' ? 'active bg-purple-600' : 'bg-gray-100 text-gray-600'}`}>جديدة</button>
-                        <button onClick={() => switchView('used')} className={`flex-1 py-3 rounded-lg font-bold text-sm ${currentCodeType === 'used' ? 'active bg-purple-600' : 'bg-gray-100 text-gray-600'}`}>مستخدمة</button>
-                    </div>
-                    
-                    <select value={issueId} onChange={e => setIssueId(e.target.value)} onBlur={fetchCodesPreview} className="w-full p-3 border rounded-xl mb-4">
-                        <option value="">اختر العدد...</option>
-                        {issuesList.map(i => <option key={i.id} value={i.id}>#{i.id} - {i.title.ar}</option>)}
-                    </select>
-                    
-                    <button onClick={fetchCodesPreview} className="w-full bg-gray-800 text-white px-6 py-3 rounded-xl font-bold hover:bg-black transition mb-4">عرض الأكواد</button>
-                    
-                    <div className="bg-gray-50 p-4 rounded-xl border mb-4">
-                        <div className="flex justify-between mb-4"><span className="font-bold">معاينة الأكواد:</span><span className="bg-blue-100 px-3 py-1 rounded-full font-bold">{codes.length} كود</span></div>
-                        <div className="h-64 overflow-y-auto bg-white p-3 rounded-lg border">
-                            {codes.length > 0 ? (
-                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-                                    {codes.slice(0, 25).map(c => (
-                                        <div key={c.code} className="text-center p-1 bg-white rounded-lg shadow-sm border border-gray-100">
-                                            <QRCodeDisplay value={c.code} />
-                                            <div className="text-xs font-mono text-gray-600 truncate mt-1">{c.code}</div>
-                                        </div>
-                                    ))}
-                                    {codes.length > 25 && <div className="col-span-full text-center text-sm text-gray-400 mt-2">... والمزيد ({codes.length - 25} إضافي)</div>}
-                                </div>
-                            ) : (
-                                <div className="text-center text-gray-400 py-10">لا توجد أكواد لعرضها.</div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <button onClick={printCurrentView} className="bg-purple-600 text-white py-3 rounded-xl font-bold shadow">🖨️ طباعة</button>
-                        <button onClick={deleteDisplayedCodes} disabled={codes.length === 0} className={`py-3 rounded-xl font-bold transition ${codes.length === 0 ? 'bg-red-100 text-red-400 cursor-not-allowed' : 'bg-red-600 text-white shadow-lg hover:bg-red-700'}`}>🗑️ حذف القائمة</button>
-                    </div>
-                </div>
-            </div>);
-        }
-
-        // Component for App Settings
-        function SettingsTab({ config, refresh }) {
-            const [data, setData] = React.useState(config);
-            const [loading, setLoading] = React.useState(false);
-            
-            const [bgFile, setBgFile] = React.useState(null);
-            const [logoFile, setLogoFile] = React.useState(null); 
-            
-            const initialKeys = config.gemini_keys_list && Array.isArray(config.gemini_keys_list) 
-                ? config.gemini_keys_list.map(k => ({ id: Math.random().toString(36).substring(2, 9), ...k })) 
-                : [{ id: Math.random().toString(36).substring(2, 9), key: '', expires: '' }];
-                
-            const [aiKeysList, setAiKeysList] = React.useState(initialKeys);
-
-            React.useEffect(() => { 
-                setData(config); 
-                const updatedKeys = config.gemini_keys_list && Array.isArray(config.gemini_keys_list) 
-                    ? config.gemini_keys_list.map(k => ({ id: Math.random().toString(36).substring(2, 9), ...k })) 
-                    : [{ id: Math.random().toString(36).substring(2, 9), key: '', expires: '' }];
-                setAiKeysList(updatedKeys);
-            }, [config]);
-
-            const handleKeyChange = (id, field, value) => {
-                setAiKeysList(prev => prev.map(k => k.id === id ? { ...k, [field]: value } : k));
-            };
-
-            const addKeyField = () => {
-                setAiKeysList(prev => [...prev, { id: Math.random().toString(36).substring(2, 9), key: '', expires: '' }]);
-            };
-            
-            const removeKeyField = (id) => {
-                 setAiKeysList(prev => prev.filter(k => k.id !== id));
-            };
-
-
-            const saveConf = async () => {
+            const saveIssue = async () => {
                 setLoading(true);
                 try {
-                    let finalBgUrl = data.appBackground;
-                    let finalLogoUrl = data.appLogo;
-
-                    if (bgFile) {
-                        console.log('جاري رفع صورة الخلفية...');
-                        finalBgUrl = await uploadFile(bgFile);
-                    }
-                    
-                    if (logoFile) {
-                        console.log('جاري رفع اللوجو...');
-                        finalLogoUrl = await uploadFile(logoFile);
-                    }
-                    
-                    const cleanKeysList = aiKeysList
-                        .filter(k => k.key.trim() !== '')
-                        .map(k => ({ key: k.key.trim(), expires: k.expires || null }));
-
-
-                    const newVal = {
-                        adminPassword: data.adminPassword,
-                        internalPassword: data.internalPassword,
-                        appBackground: finalBgUrl,
-                        appLogo: finalLogoUrl,
-                        introTitle: data.introTitle,
-                        introBody: data.introBody,
-                        enableChildLogin: !!data.enableChildLogin,
-                        enableInternalLock: !!data.enableInternalLock,
-                        gemini_keys_list: cleanKeysList
-                    };
-
-                    const { error } = await supabase.from('settings').upsert({ key: 'config', value: newVal });
-                    
-                    if (error) {
-                         console.error('خطأ في حفظ الإعدادات:', error.message);
-                         alert(`فشل الحفظ: ${error.message}`);
-                         throw error;
-                    } 
-                    
-                    adminPassword = newVal.adminPassword; internalPassword = newVal.internalPassword;
-                    console.log('تم الحفظ بنجاح! ✅'); refresh();
-                } catch(e) { console.error('خطأ عام في الحفظ:', e.message); } finally { setLoading(false); }
+                    let bg = issueData.backgroundUrl;
+                    if(issueData.backgroundFile) bg = await uploadFile(issueData.backgroundFile);
+                    const formattedContest = issueData.contestQuestions.map(q => ({ question: q.question, answer: q.answer, options: q.options ? q.options.split(',').map(o => o.trim()).filter(o => o) : [] })).filter(q => q.question && q.answer);
+                    const payload = { title: {ar: issueData.title}, date: {ar: issueData.date}, magazine_url: issueData.magUrl, verse: {text: issueData.verseText, ref: issueData.verseRef}, is_free: issueData.isFree, background: bg, videos: issueData.videos.filter(v=>v.url), contest: formattedContest, hide_magazine: issueData.hideMagazine };
+                    if(editingId) await supabase.from('issues').update(payload).eq('id', editingId); else await supabase.from('issues').insert([{id: issueData.id, ...payload}]);
+                    alert('تم الحفظ'); setEditingId(null); setIssueData({id:'',title:'',date:'',magUrl:'',verseText:'',verseRef:'',isFree:false,backgroundUrl:'',videos:[{title:'',url:''}],contestQuestions:[],hideMagazine:false}); refresh();
+                } catch(e) { alert('خطأ: ' + e.message); } finally { setLoading(false); }
             };
-            
+            const deleteIssue = async (id) => { if(confirm('حذف؟')) { await supabase.from('issues').delete().eq('id', id); refresh(); } };
+
             return (
-                <div className="max-w-4xl mx-auto bg-white p-8 rounded-3xl shadow-xl border-t-4 border-blue-600 animate-fade-in">
-                    <h2 className="font-bold text-2xl mb-6 border-b pb-4 text-gray-800">⚙️ الإعدادات العامة</h2>
-                    
-                    <div className="bg-red-50 p-6 rounded-xl border border-red-200 mb-6 space-y-4">
-                        <h3 className="font-bold text-red-800 flex items-center gap-2">🔑 إدارة مفاتيح Gemini API</h3>
-                        <p className="text-sm text-red-600 font-medium">أدخل مفتاحاً واحداً على الأقل. سيستخدم التطبيق المفاتيح بالتناوب في حال انتهاء صلاحية المفتاح الحالي أو فشله.</p>
-                        
-                        {aiKeysList.map((keyObj, index) => (
-                            <div key={keyObj.id} className="flex gap-2 items-center bg-white p-3 rounded-xl border relative shadow-sm">
-                                <span className="text-gray-500 font-bold text-lg">{index + 1}.</span>
-                                <input 
-                                    value={keyObj.key} 
-                                    onChange={e => handleKeyChange(keyObj.id, 'key', e.target.value)}
-                                    placeholder="مفتاح API" 
-                                    className="flex-1 p-2 border rounded-lg text-sm font-mono"
-                                />
-                                <input 
-                                    type="date"
-                                    value={keyObj.expires || ''} 
-                                    onChange={e => handleKeyChange(keyObj.id, 'expires', e.target.value)}
-                                    title="تاريخ الانتهاء" 
-                                    className="p-2 border rounded-lg text-sm w-40 text-center"
-                                />
-                                {aiKeysList.length > 1 && (
-                                    <button onClick={() => removeKeyField(keyObj.id)} className="text-red-500 hover:text-red-700 p-2 transition">🗑️</button>
-                                )}
+                <div className="grid lg:grid-cols-3 gap-6 animate-fade-in">
+                    <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow border-t-4 border-blue-600 h-fit">
+                        <h2 className="font-bold text-lg mb-4">{editingId ? 'تعديل' : 'إضافة عدد'}</h2>
+                        <div className="space-y-3">
+                            <input value={issueData.id} onChange={e=>setIssueData({...issueData, id: e.target.value})} disabled={!!editingId} placeholder="رقم العدد (ID)" className="w-full border p-2 rounded"/>
+                            <input value={issueData.title} onChange={e=>setIssueData({...issueData, title: e.target.value})} placeholder="العنوان" className="w-full border p-2 rounded"/>
+                            <input value={issueData.date} onChange={e=>setIssueData({...issueData, date: e.target.value})} placeholder="التاريخ" className="w-full border p-2 rounded"/>
+                            <input value={issueData.magUrl} onChange={e=>setIssueData({...issueData, magUrl: e.target.value})} placeholder="رابط المجلة" className="w-full border p-2 rounded"/>
+                            
+                            <div className="bg-gray-50 p-2 rounded border">
+                                <label className="text-xs font-bold block mb-1">مسابقة العدد:</label>
+                                {issueData.contestQuestions.map((q, i) => (
+                                    <div key={i} className="mb-2 border-b pb-2">
+                                        <div className="flex gap-1 mb-1"><input value={q.question} onChange={e=>handleQChange(i,'question',e.target.value)} placeholder="السؤال" className="w-full border p-1 rounded text-sm"/><button onClick={()=>handleRemoveQ(i)} className="text-red-500">✕</button></div>
+                                        <input value={q.answer} onChange={e=>handleQChange(i,'answer',e.target.value)} placeholder="الإجابة الصحيحة" className="w-full border p-1 rounded text-sm mb-1 bg-green-50"/>
+                                        <input value={q.options} onChange={e=>handleQChange(i,'options',e.target.value)} placeholder="اختيارات (اختياري، افصل بفاصلة)" className="w-full border p-1 rounded text-sm bg-yellow-50"/>
+                                    </div>
+                                ))}
+                                <button onClick={handleAddQuestion} className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">+ سؤال</button>
+                            </div>
+
+                            <div className="bg-gray-50 p-2 rounded border">
+                                <label className="text-xs font-bold block mb-1">فيديوهات:</label>
+                                {issueData.videos.map((v, i) => (<div key={i} className="flex gap-1 mb-1"><input value={v.title} onChange={e=>handleVideoChange(i,'title',e.target.value)} placeholder="عنوان" className="w-1/2 border p-1"/><input value={v.url} onChange={e=>handleVideoChange(i,'url',e.target.value)} placeholder="رابط" className="w-1/2 border p-1"/></div>))}
+                                <button onClick={handleAddVideo} className="text-xs text-blue-600">+ فيديو</button>
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                                <label className="flex items-center gap-2"><input type="checkbox" checked={issueData.isFree} onChange={e=>setIssueData({...issueData, isFree: e.target.checked})} /> <span>مجاني</span></label>
+                                <label className="flex items-center gap-2"><input type="checkbox" checked={issueData.hideMagazine} onChange={e=>setIssueData({...issueData, hideMagazine: e.target.checked})} /> <span>إخفاء المجلة</span></label>
+                            </div>
+                            <button onClick={saveIssue} disabled={loading} className="w-full bg-blue-600 text-white py-2 rounded">{loading?'...':'حفظ'}</button>
+                            {editingId && <button onClick={()=>setEditingId(null)} className="w-full bg-gray-200 py-2 rounded mt-2">إلغاء</button>}
+                        </div>
+                    </div>
+                    <div className="lg:col-span-2 space-y-4">
+                        {issues.map(iss => (
+                            <div key={iss.id} className="bg-white p-4 rounded-xl shadow flex justify-between items-center">
+                                <div><div className="font-bold">#{iss.id} {iss.title?.ar}</div><div className="text-xs text-gray-500">{iss.contest?.length || 0} أسئلة</div></div>
+                                <div><button onClick={()=>startEdit(iss)} className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded mx-1">تعديل</button><button onClick={()=>deleteIssue(iss.id)} className="bg-red-100 text-red-700 px-3 py-1 rounded">حذف</button></div>
                             </div>
                         ))}
-
-                        <button onClick={addKeyField} className="w-full bg-red-100 text-red-700 py-3 rounded-xl font-bold border border-dashed hover:bg-red-200 transition">
-                            + إضافة مفتاح آخر
-                        </button>
                     </div>
+                </div>
+            );
+        }
 
+        // --- Codes Tab Restored ---
+        function CodesTab({ refreshIssues }) {
+            const [issueId, setIssueId] = React.useState(''); const [count, setCount] = React.useState(''); const [loading, setLoading] = React.useState(false); const [codes, setCodes] = React.useState([]); const [issuesList, setIssuesList] = React.useState([]); const [codeType, setCodeType] = React.useState('unused');
+            React.useEffect(() => { const f = async () => { const { data } = await supabase.from('issues').select('id, title'); if (data) setIssuesList(data); }; f(); }, [refreshIssues]);
+            
+            const fetchCodes = async () => { const used = codeType === 'used'; if (!issueId) return; const { data } = await supabase.from('codes').select('*').eq('issue_id', issueId).eq('used', used); setCodes(data || []); };
+            const generate = async () => { setLoading(true); try { await generateCodesLogic(issueId, count); fetchCodes(); } catch(e){ alert(e.message); } finally { setLoading(false); } };
+            const deleteCodes = async () => { if(!confirm('حذف؟')) return; await supabase.from('codes').delete().in('code', codes.map(c=>c.code)); setCodes([]); };
+            
+            const printCodes = () => {
+                if(codes.length === 0) return;
+                const w = window.open('', '_blank');
+                w.document.write(`<html><head><style>body{font-family:sans-serif;text-align:center;direction:rtl;} .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;} .card{border:1px dashed #000;padding:5px;}</style></head><body><h1>أكواد العدد ${issueId}</h1><div class="grid">`);
+                codes.forEach(c => w.document.write(`<div class="card"><div>#${c.issue_id}</div><img src="${generateQrDataUrl(c.code)}" width="100"><br><b>${c.code}</b></div>`));
+                w.document.write('</div></body></html>'); w.document.close(); setTimeout(()=>w.print(), 500);
+            };
 
-                    <div className="bg-yellow-50 p-6 rounded-xl border border-yellow-200 mb-6 space-y-4">
-                        <h3 className="font-bold text-yellow-800 mb-4 flex items-center gap-2"><span className="text-2xl">🚀</span> ميزات متقدمة</h3>
-                        
-                        <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm">
-                            <div>
-                                <div className="font-bold text-gray-800">تفعيل نظام تسجيل جوري</div>
-                                <div className="text-xs text-gray-500">يطلب تسجيل البيانات قبل الدخول</div>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" checked={data.enableChildLogin || false} onChange={e => setData(p => ({ ...p, enableChildLogin: e.target.checked }))} className="sr-only peer" />
-                                <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
-                            </label>
-                        </div>
-
-                        <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm">
-                            <div>
-                                <div className="font-bold text-gray-800">تفعيل القفل الداخلي (Double Security)</div>
-                                <div className="text-xs text-gray-500">حماية التبويبات الحساسة بباسورد إضافي</div>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" checked={data.enableInternalLock || false} onChange={e => setData(p => ({ ...p, enableInternalLock: e.target.checked }))} className="sr-only peer" />
-                                <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-red-600"></div>
-                            </label>
-                        </div>
+            return (
+                <div className="grid lg:grid-cols-2 gap-8 no-print animate-fade-in">
+                    <div className="bg-white p-8 rounded-2xl shadow border-t-4 border-green-500 h-fit">
+                        <h2 className="font-bold text-2xl mb-6">✨ توليد أكواد</h2>
+                        <input value={issueId} onChange={e=>setIssueId(e.target.value)} placeholder="رقم العدد" className="w-full p-4 border rounded-xl mb-4"/>
+                        <input value={count} onChange={e=>setCount(e.target.value)} type="number" placeholder="العدد" className="w-full p-4 border rounded-xl mb-4"/>
+                        <button onClick={generate} disabled={loading} className="w-full bg-green-600 text-white py-4 rounded-xl font-bold">{loading?'...':'توليد'}</button>
                     </div>
+                    <div className="bg-white p-8 rounded-2xl shadow border-t-4 border-purple-500">
+                        <h2 className="font-bold text-2xl mb-6">🖨️ طباعة</h2>
+                        <div className="flex gap-2 mb-4 bg-gray-100 p-1 rounded"><button onClick={()=>{setCodeType('unused');fetchCodes();}} className={`flex-1 py-2 ${codeType==='unused'?'bg-white shadow':''}`}>جديدة</button><button onClick={()=>{setCodeType('used');fetchCodes();}} className={`flex-1 py-2 ${codeType==='used'?'bg-white shadow':''}`}>مستخدمة</button></div>
+                        <select value={issueId} onChange={e=>setIssueId(e.target.value)} onBlur={fetchCodes} className="w-full p-3 border rounded-xl mb-4"><option value="">اختر العدد...</option>{issuesList.map(i=><option key={i.id} value={i.id}>#{i.id} - {i.title.ar}</option>)}</select>
+                        <button onClick={fetchCodes} className="w-full bg-gray-800 text-white px-6 py-2 rounded-xl mb-4">عرض ({codes.length})</button>
+                        <div className="grid grid-cols-2 gap-3"><button onClick={printCodes} className="bg-purple-600 text-white py-3 rounded-xl font-bold">طباعة</button><button onClick={deleteCodes} className="bg-red-600 text-white py-3 rounded-xl font-bold">حذف</button></div>
+                    </div>
+                </div>
+            );
+        }
 
-                    <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 mb-6"><h3 className="font-bold text-indigo-800 mb-3">👋 الرسالة الترحيبية</h3><input value={data.introTitle} onChange={e => setData(p => ({ ...p, introTitle: e.target.value }))} placeholder="العنوان" className="w-full p-3 border rounded-xl mb-3"/><textarea value={data.introBody} onChange={e => setData(p => ({ ...p, introBody: e.target.value }))} placeholder="الرسالة" className="w-full p-3 border rounded-xl h-24 resize-none"/></div>
+        function AmazingBookTab() {
+            const [videos, setVideos] = React.useState([]); const [newV, setNewV] = React.useState([{title_ar:'',url:''}]);
+            React.useEffect(()=>{ supabase.from('amazing_book_videos').select('*').then(({data})=>setVideos(data||[])) },[]);
+            const save = async () => { await supabase.from('amazing_book_videos').insert(newV.filter(v=>v.url)); alert('تم'); window.location.reload(); };
+            const del = async (id) => { if(confirm('حذف؟')) { await supabase.from('amazing_book_videos').delete().eq('id',id); window.location.reload(); } };
+            return (
+                <div className="grid lg:grid-cols-2 gap-6 animate-fade-in">
+                    <div className="bg-white p-6 rounded-2xl shadow h-fit">
+                        <h3 className="font-bold mb-4">إضافة فيديو</h3>
+                        {newV.map((v,i)=><div key={i} className="flex gap-2 mb-2"><input placeholder="عنوان" value={v.title_ar} onChange={e=>{const n=[...newV];n[i].title_ar=e.target.value;setNewV(n)}} className="border p-2 w-1/2"/><input placeholder="رابط" value={v.url} onChange={e=>{const n=[...newV];n[i].url=e.target.value;setNewV(n)}} className="border p-2 w-1/2"/></div>)}
+                        <button onClick={()=>setNewV([...newV,{title_ar:'',url:''}])} className="text-blue-500 mb-2">+ المزيد</button>
+                        <button onClick={save} className="w-full bg-green-600 text-white py-2 rounded">حفظ</button>
+                    </div>
+                    <div className="space-y-2">{videos.map(v=><div key={v.id} className="bg-white p-3 rounded shadow flex justify-between"><span>{v.title_ar}</span><button onClick={()=>del(v.id)} className="text-red-500">حذف</button></div>)}</div>
+                </div>
+            );
+        }
+
+        function SettingsTab({ config, refresh }) {
+            const [data, setData] = React.useState(config);
+            const [bgFile, setBgFile] = React.useState(null);
+            const [logoFile, setLogoFile] = React.useState(null); 
+            const [keys, setKeys] = React.useState(config.gemini_keys_list || []);
+            const [loading, setLoading] = React.useState(false);
+
+            React.useEffect(() => { setData(config); setKeys(config.gemini_keys_list || []); }, [config]);
+
+            const save = async () => {
+                setLoading(true);
+                try {
+                    let bg = data.appBackground, logo = data.appLogo;
+                    if(bgFile) bg = await uploadFile(bgFile);
+                    if(logoFile) logo = await uploadFile(logoFile);
+                    const newVal = { ...data, appBackground: bg, appLogo: logo, gemini_keys_list: keys };
+                    await supabase.from('settings').upsert({key:'config', value: newVal});
+                    alert('تم الحفظ'); refresh();
+                } catch(e) { alert(e.message); } finally { setLoading(false); }
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto bg-white p-8 rounded-3xl shadow-xl border-t-4 border-blue-600 animate-fade-in">
+                    <h2 className="font-bold text-2xl mb-6">⚙️ الإعدادات العامة</h2>
                     
-                    <div className="space-y-4">
-                        <div className="grid md:grid-cols-2 gap-4">
-                            <div><label className="block font-bold mb-1">كلمة المرور (الدخول):</label><input value={data.adminPassword} onChange={e => setData(p => ({ ...p, adminPassword: e.target.value }))} className="w-full p-3 border rounded-xl bg-gray-50"/></div>
-                            <div><label className="block font-bold mb-1 text-red-600">القفل الداخلي:</label><input value={data.internalPassword} onChange={e => setData(p => ({ ...p, internalPassword: e.target.value }))} className="w-full p-3 border rounded-xl bg-red-50 border-red-200"/></div>
-                        </div>
-                        
-                        <div className="grid md:grid-cols-2 gap-4">
-                            <div className="space-y-2 bg-gray-50 p-3 rounded-xl border">
-                                <label className="block font-bold mb-1">صورة الخلفية (URL أو رفع):</label>
-                                <input value={data.appBackground} onChange={e => { setData(p => ({ ...p, appBackground: e.target.value })); setBgFile(null); }} placeholder="1. رابط URL مباشر للصورة" className="w-full p-2 border rounded text-sm mb-2"/>
-                                <input type="file" accept="image/*" onChange={e => { setBgFile(e.target.files[0]); setData(p => ({ ...p, appBackground: '' })); }} className="w-full text-sm p-2 border rounded-xl bg-white"/>
+                    <div className="bg-red-50 p-6 rounded-xl border border-red-200 mb-6">
+                        <h3 className="font-bold text-red-800 mb-2">مفاتيح AI (Gemini)</h3>
+                        {keys.map((k, i) => (
+                            <div key={i} className="flex gap-2 mb-2">
+                                <input value={k.key} onChange={e => {const n=[...keys];n[i].key=e.target.value;setKeys(n)}} placeholder="Key" className="flex-1 p-2 border rounded"/>
+                                <button onClick={() => setKeys(keys.filter((_, idx) => idx !== i))} className="text-red-600">🗑️</button>
                             </div>
-                            <div className="space-y-2 bg-gray-50 p-3 rounded-xl border">
-                                <label className="block font-bold mb-1">اللوجو (URL أو رفع):</label>
-                                <input value={data.appLogo} onChange={e => { setData(p => ({ ...p, appLogo: e.target.value })); setLogoFile(null); }} placeholder="1. رابط URL مباشر للوجو" className="w-full p-2 border rounded text-sm mb-2"/>
-                                <input type="file" accept="image/*" onChange={e => { setLogoFile(e.target.files[0]); setData(p => ({ ...p, appLogo: '' })); }} className="w-full text-sm p-2 border rounded-xl bg-white"/>
-                            </div>
-                        </div>
+                        ))}
+                        <button onClick={() => setKeys([...keys, { key: '', expires: '' }])} className="text-red-600 font-bold">+ مفتاح</button>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4 mb-4">
+                        <div><label className="block font-bold">صورة الخلفية</label><input type="file" onChange={e=>setBgFile(e.target.files[0])} className="w-full border p-2"/></div>
+                        <div><label className="block font-bold">اللوجو</label><input type="file" onChange={e=>setLogoFile(e.target.files[0])} className="w-full border p-2"/></div>
+                        <div><label className="block font-bold">كلمة سر الأدمن</label><input value={data.adminPassword} onChange={e=>setData({...data,adminPassword:e.target.value})} className="w-full border p-2"/></div>
+                        <div><label className="block font-bold">القفل الداخلي</label><input value={data.internalPassword} onChange={e=>setData({...data,internalPassword:e.target.value})} className="w-full border p-2"/></div>
                     </div>
                     
-                    <button onClick={saveConf} disabled={loading} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg mt-6 transition disabled:bg-gray-400 hover:bg-blue-700">{loading ? 'جاري الحفظ...' : 'حفظ التغييرات ✅'}</button>
+                    <div className="bg-gray-50 p-4 rounded border mb-4">
+                        <label className="block font-bold mb-2">رسالة الترحيب</label>
+                        <input value={data.introTitle} onChange={e=>setData({...data,introTitle:e.target.value})} className="w-full border p-2 mb-2" placeholder="العنوان"/>
+                        <textarea value={data.introBody} onChange={e=>setData({...data,introBody:e.target.value})} className="w-full border p-2 h-20" placeholder="المحتوى"/>
+                    </div>
+
+                    <button onClick={save} disabled={loading} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold">{loading?'...':'حفظ التغييرات'}</button>
                 </div>
             );
         }
 
         function App() {
-            const [isAuth, setIsAuth] = React.useState(sessionStorage.getItem('admin') === 'true');
-            const [isInternalUnlocked, setIsInternalUnlocked] = React.useState(sessionStorage.getItem('internal_lock') === 'unlocked'); 
-            const [currentTab, setCurrentTab] = React.useState('overview'); 
-            const [issues, setIssues] = React.useState([]);
+            const [tab, setTab] = React.useState('overview');
+            const [auth, setAuth] = React.useState(sessionStorage.getItem('admin')==='true');
             const [config, setConfig] = React.useState({});
-            const [loading, setLoading] = React.useState(true);
-            const [refreshToggle, setRefreshToggle] = React.useState(false);
+            const [issues, setIssues] = React.useState([]);
+            const [toggle, setToggle] = React.useState(false);
 
-            const fetchInitialData = React.useCallback(async () => {
-                setLoading(true);
-                try {
-                    const { data: settingsData } = await supabase.from('settings').select('value').eq('key', 'config').maybeSingle();
-                    if (settingsData?.value) {
-                        setConfig(settingsData.value);
-                        adminPassword = settingsData.value.adminPassword;
-                        internalPassword = settingsData.value.internalPassword || "456"; 
-                    } else {
-                        setConfig({
-                            adminPassword: "123", internalPassword: "456", enableChildLogin: false, enableInternalLock: false, gemini_keys_list: []
-                        });
-                    }
+            React.useEffect(() => {
+                const init = async () => {
+                    const { data: s } = await supabase.from('settings').select('value').eq('key', 'config').maybeSingle();
+                    if(s) { setConfig(s.value); adminPassword = s.value.adminPassword || "123"; internalPassword = s.value.internalPassword || "456"; }
+                    const { data: i } = await supabase.from('issues').select('*').order('created_at', {ascending:false});
+                    setIssues(i || []);
+                };
+                init();
+            }, [toggle]);
 
-                    const { data: issuesData, error } = await supabase.from('issues').select('*').order('created_at', { ascending: false });
-                    if (error) console.error("Fetch issues error:", error);
-                    if (issuesData) setIssues(issuesData);
-                } catch (e) { console.error("Error during initial data fetch:", e); } finally { setLoading(false); }
-            }, [refreshToggle]);
-
-            React.useEffect(() => { 
-                fetchInitialData(); 
-            }, [refreshToggle]);
-
-            const handleLogin = (isSuccess) => { if (isSuccess) { sessionStorage.setItem('admin', 'true'); setIsAuth(true); } };
-            const handleRefresh = () => setRefreshToggle(p => !p);
-            
-            const handleInternalUnlock = () => { 
-                setIsInternalUnlocked(true); 
-                sessionStorage.setItem('internal_lock', 'unlocked');
-            }
-            
-            const renderContent = () => {
-                if (currentTab === 'overview') return <OverviewTab config={config} refresh={handleRefresh} />; 
-                
-                const sensitiveTabs = ['issues', 'codes', 'amazing_book', 'settings'];
-                if (sensitiveTabs.includes(currentTab) && config.enableInternalLock && !isInternalUnlocked) {
-                    return <InternalLockView onUnlock={handleInternalUnlock} />;
-                }
-
-                switch (currentTab) {
-                    case 'issues': return <IssuesTab issues={issues} refresh={handleRefresh} />;
-                    case 'codes': return <CodesTab refreshIssues={handleRefresh} />;
-                    case 'amazing_book': return <AmazingBookTab />;
-                    case 'settings': return <SettingsTab config={{...config, adminPassword, internalPassword}} refresh={handleRefresh} />;
-                    default: return <OverviewTab config={config} refresh={handleRefresh} />;
-                }
-            };
-            
-            const getTabButtonClass = (tabName) => {
-                const baseClass = `tab-btn px-6 py-2 rounded-xl font-bold shadow-sm ${currentTab === tabName ? 'active' : 'bg-gray-100 text-gray-600'}`;
-                const sensitiveTabs = ['issues', 'codes', 'amazing_book', 'settings'];
-                const isSensitive = sensitiveTabs.includes(tabName);
-                
-                const showLock = isSensitive && config.enableInternalLock && !isInternalUnlocked;
-
-                return `${baseClass} ${showLock ? 'text-red-500' : ''}`;
-            };
-
-            if (loading) return <div className="h-screen flex items-center justify-center text-xl font-bold">جاري التحميل...</div>;
-            if (!isAuth) return <LoginView onLogin={handleLogin} />;
+            if(!auth) return <LoginView onLogin={(v)=>{if(v){sessionStorage.setItem('admin','true'); setAuth(true);}}}/>;
 
             return (
-                <div className="max-w-7xl mx-auto">
-                    <div className="flex flex-col md:flex-row justify-between items-center mb-8 no-print bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-                        <div className="flex items-center gap-3 mb-4 md:mb-0"><div className="bg-blue-600 text-white p-2 rounded-lg font-bold text-xl">Pro</div><h1 className="text-2xl font-bold text-gray-800">Beجوري (لوحة التحكم)</h1></div>
+                <div className="max-w-6xl mx-auto">
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow">
+                        <h1 className="font-bold text-xl text-blue-800 mb-4 md:mb-0">لوحة تحكم Beجوري</h1>
                         <div className="flex flex-wrap gap-2 justify-center">
-                            <button onClick={() => { setCurrentTab('overview'); setIsInternalUnlocked(false); }} className={getTabButtonClass('overview')}>📊 نظرة عامة</button>
-                            <button onClick={() => { setCurrentTab('issues'); }} className={getTabButtonClass('issues')}>📰 الأعداد {config.enableInternalLock && !isInternalUnlocked ? '🔒' : ''}</button>
-                            <button onClick={() => { setCurrentTab('codes'); }} className={getTabButtonClass('codes')}>🎫 الأكواد {config.enableInternalLock && !isInternalUnlocked ? '🔒' : ''}</button>
-                            <button onClick={() => { setCurrentTab('amazing_book'); }} className={getTabButtonClass('amazing_book')}>📖 الكتاب {config.enableInternalLock && !isInternalUnlocked ? '🔒' : ''}</button>
-                            <button onClick={() => { setCurrentTab('settings'); }} className={getTabButtonClass('settings')}>⚙️ الإعدادات {config.enableInternalLock && !isInternalUnlocked ? '🔒' : ''}</button>
-                            
-                            <button onClick={() => { sessionStorage.clear(); setIsAuth(false); setIsInternalUnlocked(false); }} className="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-xl font-bold border border-red-200">خروج</button>
+                            <button onClick={()=>setTab('overview')} className={`px-3 py-2 rounded ${tab==='overview'?'bg-blue-600 text-white':'bg-gray-100'}`}>🤝 الأصدقاء</button>
+                            <button onClick={()=>setTab('contest_results')} className={`px-3 py-2 rounded ${tab==='contest_results'?'bg-purple-600 text-white':'bg-gray-100'}`}>🏆 النتائج</button>
+                            <button onClick={()=>setTab('issues')} className={`px-3 py-2 rounded ${tab==='issues'?'bg-blue-600 text-white':'bg-gray-100'}`}>📰 الأعداد</button>
+                            <button onClick={()=>setTab('codes')} className={`px-3 py-2 rounded ${tab==='codes'?'bg-blue-600 text-white':'bg-gray-100'}`}>🎫 الأكواد</button>
+                            <button onClick={()=>setTab('amazing_book')} className={`px-3 py-2 rounded ${tab==='amazing_book'?'bg-blue-600 text-white':'bg-gray-100'}`}>📖 الكتاب</button>
+                            <button onClick={()=>setTab('settings')} className={`px-3 py-2 rounded ${tab==='settings'?'bg-blue-600 text-white':'bg-gray-100'}`}>⚙️ الإعدادات</button>
+                            <button onClick={()=>{sessionStorage.clear();setAuth(false);}} className="bg-red-50 text-red-600 px-3 py-2 rounded border border-red-200">خروج</button>
                         </div>
                     </div>
-                    <div id="contentArea">{renderContent()}</div>
+                    {tab === 'overview' && <OverviewTab refresh={toggle} />}
+                    {tab === 'contest_results' && <ContestResultsTab refresh={toggle} />}
+                    {tab === 'issues' && <IssuesTab issues={issues} refresh={()=>setToggle(!toggle)} />}
+                    {tab === 'codes' && <CodesTab refreshIssues={toggle} />}
+                    {tab === 'amazing_book' && <AmazingBookTab />}
+                    {tab === 'settings' && <SettingsTab config={config} refresh={()=>setToggle(!toggle)} />}
                 </div>
             );
         }
