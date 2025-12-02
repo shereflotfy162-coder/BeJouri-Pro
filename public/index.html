@@ -247,7 +247,6 @@
                                     <option>الصف الرابع الابتدائي</option>
                                     <option>الصف الخامس الابتدائي</option>
                                     <option>الصف السادس الابتدائي</option>
-                                    
                                 </select>
                             </div>
 
@@ -266,7 +265,6 @@
         }
 
         function ContestResultModal({ score, total, issueId, onClose, setAlert }) {
-            // ✅ تم إزالة حقل الموهبة من هنا
             const [data, setData] = React.useState({ name: '', phone: '', grade: 'الصف الأول الابتدائي' });
             const [loading, setLoading] = React.useState(false);
             
@@ -274,15 +272,14 @@
                 if(!data.name || !data.phone) return setAlert("اكتب اسمك ورقمك لحفظ النتيجة!");
                 setLoading(true);
                 try {
-                    // ✅ حفظ حقل السنة فقط (بدون الموهبة)
                     await supabase.from('contest_submissions').insert([{ 
                         issue_id: issueId, 
                         student_name: data.name, 
                         student_phone: data.phone, 
                         score: score, 
                         total: total,
-                        student_grade: data.grade, // ✅ حقل جديد
-                        student_talent: '' // إرسال قيمة فارغة لعمود الموهبة
+                        student_grade: data.grade, 
+                        student_talent: '' 
                     }]);
                     setAlert("تم حفظ نتيجتك يا بطل! 🏆", 'success');
                     onClose();
@@ -492,7 +489,36 @@
         function IssueDetail({ issue, onBack, t, setAlert, aiCall }) {
             const hasContest = issue.contest && issue.contest.length > 0;
             const hideMagazine = issue.hide_magazine === true; 
-            const [tab, setTab] = React.useState(hideMagazine ? (hasContest ? 'contest' : 'video') : "mag");
+            
+            // ✅ تغيير الترتيب: ابدأ بـ 'video' إذا كانت المجلة مخفية أو 'mag' (المجلة) إذا كانت مرئية.
+            const initialTab = hideMagazine ? 'video' : 'mag';
+            const [tab, setTab] = React.useState(initialTab);
+
+            // ✅ إصلاح زر التأمل: تم فصل دالة التأمل وإرسالها كـ prop
+            const handleReflection = async (verse) => {
+                // Check if reflection is already set from the App component (main hook)
+                const storedReflection = localStorage.getItem('bejouri_reflection_cache');
+                if (storedReflection) {
+                    const parsed = JSON.parse(storedReflection);
+                    if (parsed.verse === verse) return; // Use the value from App hook
+                }
+
+                const loadingAlertKey = `reflection_loading_${Date.now()}`;
+                setAlert("جاري توليد التأمل، قد يستغرق الأمر لحظات...", 'warning');
+                
+                try {
+                    const text = await aiCall(`Write a short Coptic contemplation for a child in Arabic about: "${verse}"`);
+                    // Update App's reflection state if available, or just clear alert
+                    setAlert("تم توليد التأمل بنجاح!", 'success');
+                    // Store the result locally for display in the parent (App) component
+                    localStorage.setItem('bejouri_reflection_cache', JSON.stringify({ verse, text }));
+                    // Force re-render of App to fetch the stored reflection if necessary
+                    window.dispatchEvent(new Event('storage')); 
+                } catch(e) { 
+                    setAlert(t.apiError, 'error'); 
+                } 
+            };
+            
             return (
                 <div className="h-screen flex flex-col bg-white dark:bg-gray-900">
                     <div className="flex items-center justify-between p-3 border-b dark:border-gray-800 shadow-sm z-20">
@@ -528,7 +554,6 @@
 
             const startScan = () => { 
                 setScanning(true); 
-                // Set window global stop function for external cleanup
                 window.stopScan = () => { if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) html5QrCodeRef.current.stop().catch(err => console.error(err)); html5QrCodeRef.current = null; setScanning(false); delete window.stopScan; };
                 
                 setTimeout(() => { 
@@ -572,6 +597,7 @@
             const [showIntro, setShowIntro] = React.useState(true); 
             const [showFriendsForm, setShowFriendsForm] = React.useState(false); 
             
+            // State for Reflection (managed via localStorage event listener)
             const [reflection, setReflection] = React.useState("");
             const [reflecting, setReflecting] = React.useState(false);
             
@@ -589,6 +615,42 @@
                 return callGemini(prompt, aiKeys, activeKeyIndex, setActiveKeyIndex, setAiKeys, setAllKeysFailed);
             }, [aiKeys, activeKeyIndex]);
 
+            // Reflection Listener: Updates state when IssueDetail saves a reflection to storage
+            React.useEffect(() => {
+                const handleStorageChange = () => {
+                    const cache = localStorage.getItem('bejouri_reflection_cache');
+                    if (cache) {
+                        try {
+                            setReflection(JSON.parse(cache).text);
+                        } catch {
+                            setReflection("");
+                        }
+                    } else {
+                         setReflection("");
+                    }
+                };
+                handleStorageChange(); // Initial check
+                window.addEventListener('storage', handleStorageChange);
+                return () => window.removeEventListener('storage', handleStorageChange);
+            }, []);
+            
+            // ✅ Action to trigger AI reflection
+            const handleReflectionClick = async (verse) => {
+                setReflecting(true); 
+                setReflection(""); // Clear current reflection
+                localStorage.removeItem('bejouri_reflection_cache'); // Clear cache
+                
+                try {
+                    const text = await aiCallWithKeys(`Write a short Coptic contemplation for a child in Arabic about: "${verse}"`);
+                    const result = { verse, text };
+                    localStorage.setItem('bejouri_reflection_cache', JSON.stringify(result));
+                    setReflection(text); 
+                } catch(e) { 
+                    setAppAlert(t.apiError, 'error'); 
+                } 
+                setReflecting(false); 
+            };
+            
             // ✅ Main Data Fetching (Keys and Issues)
             React.useEffect(() => {
                 if (theme === 'dark') document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark');
@@ -617,7 +679,7 @@
 
             // ✅ Daily Verse Logic
             React.useEffect(() => {
-                // Ensure issues and keys are loaded before trying to generate the verse
+                // Check if issues and keys are ready
                 if (issues.length > 0 && aiKeys.length > 0 && !allKeysFailed) {
                     const latest = issues[0];
                     const today = new Date().toDateString();
@@ -625,7 +687,6 @@
                     
                     const cached = localStorage.getItem(storageKey);
                     
-                    // If cached, use it
                     if (cached) {
                         setDailyVerse(JSON.parse(cached));
                     } else {
@@ -653,15 +714,6 @@
                      setDailyVerse(issues[0].verse); 
                 }
             }, [issues, aiKeys, aiCallWithKeys, dailyVerse, allKeysFailed]);
-
-            const handleReflection = async (verse) => {
-                setReflecting(true); setReflection("");
-                try { 
-                    const text = await aiCallWithKeys(`Write a short Coptic contemplation for a child in Arabic about: "${verse}"`);
-                    setReflection(text); 
-                } catch(e) { setAppAlert(t.apiError); } 
-                setReflecting(false); 
-            };
 
             const handleUnlock = async (code) => {
                 setVerifying(true); setUnlockError("");
@@ -702,7 +754,7 @@
                     </div>
 
                     <div className="p-4 space-y-4 pb-20 relative z-0">
-                        {/* ✅ Daily Verse Section */}
+                        {/* Daily Verse Section */}
                         {issues.length > 0 && dailyVerse && dailyVerse.text && (
                             <div className="animate-fade-in my-8">
                                 <div className="flex items-start gap-3 relative">
@@ -711,10 +763,11 @@
                                         <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">{t.verseTitle}</h4>
                                         <p className="text-lg font-bold leading-relaxed">{dailyVerse.text}</p>
                                         <div className="text-right text-xs text-gray-500 mt-2 font-bold">— {dailyVerse.ref}</div>
-                                        <button onClick={()=>handleReflection(dailyVerse.text)} className="mt-3 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 px-3 py-1 rounded-full font-bold">{reflecting ? "..." : t.reflectBtn}</button>
+                                        {/* ✅ تم ربط الزر بالدالة الجديدة */}
+                                        <button onClick={()=>handleReflectionClick(dailyVerse.text)} className="mt-3 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 px-3 py-1 rounded-full font-bold">{reflecting ? "جاري..." : t.reflectBtn}</button>
                                     </div>
                                 </div>
-                                {reflection && <div className="mt-4 mr-10 bg-yellow-50 dark:bg-gray-800 p-4 rounded-xl border-r-4 border-yellow-400 shadow-md animate-pop-in"><div className="flex justify-between items-center mb-2"><h5 className="font-bold text-xs text-yellow-600">{t.reflectTitle}</h5><button onClick={()=>setReflection("")}>✕</button></div><p className="text-sm leading-relaxed whitespace-pre-wrap">{reflection}</p></div>}
+                                {reflection && <div className="mt-4 mr-10 bg-yellow-50 dark:bg-gray-800 p-4 rounded-xl border-r-4 border-yellow-400 shadow-md animate-pop-in"><div className="flex justify-between items-center mb-2"><h5 className="font-bold text-xs text-yellow-600">{t.reflectTitle}</h5><button onClick={()=>{setReflection(""); localStorage.removeItem('bejouri_reflection_cache');}}>✕</button></div><p className="text-sm leading-relaxed whitespace-pre-wrap">{reflection}</p></div>}
                             </div>
                         )}
 
