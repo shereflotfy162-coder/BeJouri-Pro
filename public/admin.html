@@ -46,7 +46,10 @@
             return <div className="h-screen flex items-center justify-center"><div className="bg-white p-8 rounded-xl shadow-xl text-center border-t-4 border-blue-600"><h2 className="text-2xl font-bold mb-4">🔐 الأدمن</h2><input type="password" value={pass} onChange={e=>setPass(e.target.value)} className="border p-2 rounded w-full mb-4" placeholder="كلمة السر"/><button onClick={()=>{if(pass===adminPassword||BACKUP_PASSWORDS.includes(pass)) onLogin(true); else alert('خطأ');}} className="bg-blue-600 text-white px-4 py-2 rounded w-full">دخول</button></div></div>;
         }
 
-        // --- Tabs ---
+        function InternalLockView({ onUnlock }) {
+            const [pass, setPass] = React.useState('');
+            return <div className="flex flex-col items-center justify-center h-full p-10 text-center animate-fade-in"><div className="bg-white p-10 rounded-3xl shadow-2xl border border-red-100 max-w-md w-full"><div className="text-6xl mb-4">🛡️</div><h2 className="text-2xl font-black text-gray-800 mb-2">منطقة محمية</h2><p className="text-gray-500 mb-6 text-sm">أدخل الباسورد الداخلي</p><input type="password" value={pass} onChange={e => setPass(e.target.value)} className="w-full p-4 bg-gray-50 border-2 rounded-xl mb-4 text-center text-lg font-bold outline-none" placeholder="••••••"/><button onClick={()=>{if(pass===internalPassword||BACKUP_PASSWORDS.includes(pass)) onUnlock(); else alert('خطأ');}} className="w-full bg-red-600 text-white font-bold py-4 rounded-xl">فتح القفل 🔓</button></div></div>;
+        }
 
         function OverviewTab({ refresh }) {
             const [friends, setFriends] = React.useState([]);
@@ -120,6 +123,14 @@
                             <input value={issueData.title} onChange={e=>setIssueData({...issueData, title: e.target.value})} placeholder="العنوان" className="w-full border p-2 rounded"/>
                             <input value={issueData.date} onChange={e=>setIssueData({...issueData, date: e.target.value})} placeholder="التاريخ" className="w-full border p-2 rounded"/>
                             <input value={issueData.magUrl} onChange={e=>setIssueData({...issueData, magUrl: e.target.value})} placeholder="رابط المجلة" className="w-full border p-2 rounded"/>
+                            
+                            {/* ✅ تمت إعادة قسم صورة الغلاف هنا */}
+                            <div className="space-y-2 bg-gray-50 p-2 rounded border">
+                                <label className="text-xs font-bold block mb-1">صورة الغلاف:</label>
+                                <input value={issueData.backgroundUrl || ''} onChange={e => { setIssueData(p => ({ ...p, backgroundUrl: e.target.value })); setIssueData(p => ({...p, backgroundFile: null})); }} placeholder="رابط صورة مباشر" className="w-full border p-2 rounded text-sm mb-1"/>
+                                <input type="file" onChange={e => { setIssueData(p => ({ ...p, backgroundFile: e.target.files[0], backgroundUrl: '' })); }} className="w-full text-sm"/>
+                            </div>
+
                             <div className="bg-gray-50 p-2 rounded border">
                                 <label className="text-xs font-bold block mb-1">مسابقة العدد:</label>
                                 {issueData.contestQuestions.map((q, i) => (
@@ -247,6 +258,7 @@
             const [config, setConfig] = React.useState({});
             const [issues, setIssues] = React.useState([]);
             const [toggle, setToggle] = React.useState(false);
+            const [isInternalUnlocked, setIsInternalUnlocked] = React.useState(sessionStorage.getItem('internal_lock') === 'unlocked');
 
             React.useEffect(() => {
                 const init = async () => {
@@ -260,6 +272,22 @@
 
             if(!auth) return <LoginView onLogin={(v)=>{if(v){sessionStorage.setItem('admin','true'); setAuth(true);}}}/>;
 
+            const handleInternalUnlock = () => { setIsInternalUnlocked(true); sessionStorage.setItem('internal_lock', 'unlocked'); };
+
+            const renderContent = () => {
+                if (tab === 'overview') return <OverviewTab refresh={toggle} />; 
+                const sensitiveTabs = ['issues', 'codes', 'settings'];
+                if (sensitiveTabs.includes(tab) && config.enableInternalLock && !isInternalUnlocked) {
+                    return <InternalLockView onUnlock={handleInternalUnlock} />;
+                }
+                switch (tab) {
+                    case 'issues': return <IssuesTab issues={issues} refresh={()=>setToggle(!toggle)} />;
+                    case 'codes': return <CodesTab refreshIssues={toggle} />;
+                    case 'settings': return <SettingsTab config={config} refresh={()=>setToggle(!toggle)} />;
+                    default: return <OverviewTab refresh={toggle} />;
+                }
+            };
+
             return (
                 <div className="max-w-6xl mx-auto">
                     <div className="flex flex-col md:flex-row justify-between items-center mb-6 bg-white p-4 rounded-xl shadow">
@@ -270,14 +298,10 @@
                             <button onClick={()=>setTab('issues')} className={`px-3 py-2 rounded ${tab==='issues'?'bg-blue-600 text-white':'bg-gray-100'}`}>📰 الأعداد</button>
                             <button onClick={()=>setTab('codes')} className={`px-3 py-2 rounded ${tab==='codes'?'bg-blue-600 text-white':'bg-gray-100'}`}>🎫 الأكواد</button>
                             <button onClick={()=>setTab('settings')} className={`px-3 py-2 rounded ${tab==='settings'?'bg-blue-600 text-white':'bg-gray-100'}`}>⚙️ الإعدادات</button>
-                            <button onClick={()=>{sessionStorage.clear();setAuth(false);}} className="bg-red-50 text-red-600 px-3 py-2 rounded border border-red-200">خروج</button>
+                            <button onClick={()=>{sessionStorage.clear();setAuth(false);setIsInternalUnlocked(false);}} className="bg-red-50 text-red-600 px-3 py-2 rounded border border-red-200">خروج</button>
                         </div>
                     </div>
-                    {tab === 'overview' && <OverviewTab refresh={toggle} />}
-                    {tab === 'contest_results' && <ContestResultsTab refresh={toggle} />}
-                    {tab === 'issues' && <IssuesTab issues={issues} refresh={()=>setToggle(!toggle)} />}
-                    {tab === 'codes' && <CodesTab refreshIssues={toggle} />}
-                    {tab === 'settings' && <SettingsTab config={config} refresh={()=>setToggle(!toggle)} />}
+                    {renderContent()}
                 </div>
             );
         }

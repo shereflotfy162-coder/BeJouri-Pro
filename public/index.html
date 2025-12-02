@@ -64,7 +64,7 @@
                 free: "مجاني 🎁", locked: "اضغط للفتح", open: "مفتوح ✅",
                 loginTitle: "اكتب مفتاح العدد", scanBtn: "📷 مسح بالكاميرا", manualBtn: "اكتب مفتاح العدد", activateBtn: "فتح العدد 🚀",
                 errUsed: "المفتاح مستخدم من قبل! 🚫", errWrong: "مفتاح لعدد آخر! ⚠️", errInvalid: "مفتاح خاطئ! ❌", errNetwork: "خطأ في الاتصال بالشبكة.",
-                verseTitle: "رسالة من السماء 🕊️", langBtn: "English",
+                verseTitle: "رسالة اليوم 🕊️", langBtn: "English",
                 introTitle: "أهلاً بيك يا جوري! 👋", introBody: "مرحباً بك في تطبيق Beجوري.", introBtn: "ابدأ الرحلة 🚀",
                 score: "النتيجة", playAgain: "العب تاني 🔄",
                 actRiddle: "🧠 فوازير", riddleGen: "فزورة جديدة 🎲", riddlePlaceholder: "مين هو؟", riddleCheck: "تخمين ✅", riddleWrong: "للأسف غلط 😢", riddleCorrect: "إجابة صحيحة! 🎉",
@@ -81,7 +81,7 @@
                 free: "Free 🎁", locked: "Tap to Unlock", open: "Open ✅",
                 loginTitle: "Enter Issue Key", scanBtn: "📷 Scan QR", manualBtn: "Enter Key", activateBtn: "Unlock Issue 🚀",
                 errUsed: "Key Used! 🚫", errWrong: "Wrong Issue! ⚠️", errInvalid: "Invalid Key! ❌", errNetwork: "Network connection error.",
-                verseTitle: "Message from Heaven 🕊️", langBtn: "العربية",
+                verseTitle: "Verse of the Day 🕊️", langBtn: "العربية",
                 introTitle: "Welcome Jouri! 👋", introBody: "Welcome to BeJouri app.", introBtn: "Start Journey 🚀",
                 score: "Score", playAgain: "Play Again 🔄",
                 actRiddle: "🧠 Riddles", riddleGen: "New Riddle 🎲", riddlePlaceholder: "Who is it?", riddleCheck: "Guess ✅", riddleCorrect: "Correct! 🎉", riddleWrong: "Wrong 😢",
@@ -196,7 +196,6 @@
                     const { error } = await supabase.from('children').insert([{ full_name: data.name, phone: data.phone, grade: data.grade, talent: data.talent, points: 0 }]);
                     if (error && error.code !== '23505') throw error;
                     setAlert("تم تسجيل بياناتك بنجاح! 🎉", 'success');
-                    localStorage.setItem('bejouri_friend_joined', 'true');
                     onClose();
                 } catch (e) { setAlert("حدث خطأ بسيط، حاول مرة أخرى."); } finally { setLoading(false); }
             };
@@ -252,7 +251,6 @@
             const [feedback, setFeedback] = React.useState(""); 
             const [loading, setLoading] = React.useState(false);
             
-            // ✅ Load history from local storage
             const [history, setHistory] = React.useState(JSON.parse(localStorage.getItem('bejouri_riddle_history') || '[]'));
 
             const generateRiddle = async () => {
@@ -336,7 +334,6 @@
                     Questions: `;
                     questions.forEach((q, i) => prompt += `Q${i+1}: ${q.question} \n Model: ${q.answer} \n Student: ${userAnswers[i]||"No"} \n ---\n`);
                     prompt += `Return ONLY JSON: { "score": number, "total": number, "details": [{ "q_index": 0, "correct": true/false, "feedback": "Short Arabic feedback" }], "final_feedback": "Encouraging Arabic comment" }`;
-                    
                     const rawResponse = await aiCall(prompt);
                     const jsonResult = JSON.parse(rawResponse.replace(/```json/g, '').replace(/```/g, '').trim());
                     setResult(jsonResult);
@@ -462,6 +459,7 @@
             const [theme, setTheme] = React.useState(localStorage.getItem('bejouri_theme') || 'light');
             const [issues, setIssues] = React.useState([]);
             const [activeIssue, setActiveIssue] = React.useState(null);
+            const [dailyVerse, setDailyVerse] = React.useState(null);
             
             const [showUnlock, setShowUnlock] = React.useState(false);
             const [targetIssueId, setTargetIssueId] = React.useState(null);
@@ -509,6 +507,34 @@
                 };
                 init();
             }, [lang, theme]);
+
+            // ✅ Daily Verse Logic
+            React.useEffect(() => {
+                if (issues.length > 0 && aiKeys.length > 0) {
+                    const latest = issues[0];
+                    const today = new Date().toDateString();
+                    const storageKey = `bejouri_daily_verse_${latest.id}_${today}`;
+                    
+                    const cached = localStorage.getItem(storageKey);
+                    if (cached) {
+                        setDailyVerse(JSON.parse(cached));
+                    } else {
+                        if (!dailyVerse) setDailyVerse(latest.verse); // Use default initially
+                        const fetchVerse = async () => {
+                            try {
+                                const prompt = `You are a Sunday School teacher. Suggest a Bible verse in Arabic related to the topic: "${latest.title.ar}". Return ONLY valid JSON: { "text": "Verse text", "ref": "Reference" }.`;
+                                const raw = await aiCallWithKeys(prompt);
+                                const json = JSON.parse(raw.replace(/```json/g, '').replace(/```/g, '').trim());
+                                if (json.text && json.ref) {
+                                    setDailyVerse(json);
+                                    localStorage.setItem(storageKey, JSON.stringify(json));
+                                }
+                            } catch (e) { setDailyVerse(latest.verse); }
+                        };
+                        fetchVerse();
+                    }
+                }
+            }, [issues, aiKeys, aiCallWithKeys]);
 
             const handleReflection = async (verse) => {
                 setReflecting(true); setReflection("");
@@ -558,15 +584,16 @@
                     </div>
 
                     <div className="p-4 space-y-4 pb-20 relative z-0">
-                        {issues.length > 0 && issues[0].verse && (
+                        {/* ✅ Updated Daily Verse Section */}
+                        {issues.length > 0 && dailyVerse && (
                             <div className="animate-fade-in my-8">
                                 <div className="flex items-start gap-3 relative">
                                     <div className="w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center text-2xl shadow-md border-2 border-indigo-100 text-white z-10">✝️</div>
                                     <div className="flex-1 verse-bubble p-4 shadow-xl">
                                         <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">{t.verseTitle}</h4>
-                                        <p className="text-sm font-bold leading-relaxed">"{issues[0].verse.text}"</p>
-                                        <div className="text-right text-xs text-gray-500 mt-2 font-bold">— {issues[0].verse.ref}</div>
-                                        <button onClick={()=>handleReflection(issues[0].verse.text)} className="mt-3 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 px-3 py-1 rounded-full font-bold">{reflecting ? "..." : t.reflectBtn}</button>
+                                        <p className="text-sm font-bold leading-relaxed">"{dailyVerse.text}"</p>
+                                        <div className="text-right text-xs text-gray-500 mt-2 font-bold">— {dailyVerse.ref}</div>
+                                        <button onClick={()=>handleReflection(dailyVerse.text)} className="mt-3 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 px-3 py-1 rounded-full font-bold">{reflecting ? "..." : t.reflectBtn}</button>
                                     </div>
                                 </div>
                                 {reflection && <div className="mt-4 mr-10 bg-yellow-50 dark:bg-gray-800 p-4 rounded-xl border-r-4 border-yellow-400 shadow-md animate-pop-in"><div className="flex justify-between items-center mb-2"><h5 className="font-bold text-xs text-yellow-600">{t.reflectTitle}</h5><button onClick={()=>setReflection("")}>✕</button></div><p className="text-sm leading-relaxed whitespace-pre-wrap">{reflection}</p></div>}
