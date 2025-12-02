@@ -67,23 +67,66 @@
             );
         }
 
-        function ContestResultsTab({ refresh }) {
+        function ContestResultsTab({ issues, refresh }) {
             const [results, setResults] = React.useState([]);
             const [loading, setLoading] = React.useState(false);
+            
             React.useEffect(() => {
                 const fetchResults = async () => { 
                     setLoading(true); 
-                    // ✅ تم إصلاح استعلام جلب البيانات لنتائج المسابقات لربط عنوان العدد والصف
-                    const { data } = await supabase.from('contest_submissions').select('*, issue:issue_id(title)').order('created_at', { ascending: false }); 
-                    if (data) setResults(data); 
+                    const { data, error } = await supabase.from('contest_submissions').select('*').order('created_at', { ascending: false }); 
+                    
+                    if (error) {
+                        console.error("Error fetching contest results:", error.message);
+                    }
+                    if (data) {
+                        const issuesMap = issues.reduce((acc, issue) => {
+                            acc[issue.id] = issue.title.ar;
+                            return acc;
+                        }, {});
+
+                        const mergedData = data.map(result => ({
+                            ...result,
+                            issueTitle: issuesMap[result.issue_id] || `#${result.issue_id}`
+                        }));
+                        setResults(mergedData); 
+                    } else {
+                        setResults([]);
+                    }
                     setLoading(false); 
                 };
-                fetchResults();
-            }, [refresh]);
+                if (issues.length > 0) {
+                    fetchResults();
+                }
+            }, [refresh, issues]); 
+
             const deleteResult = async (id) => { if(!confirm('حذف؟')) return; await supabase.from('contest_submissions').delete().eq('id', id); setResults(p => p.filter(r => r.id !== id)); };
+            
+            // ✅ دالة التصفير الجديدة
+            const resetAllContestData = async () => {
+                if (!confirm('تحذير: هل أنت متأكد من تصفير جميع نتائج المسابقة؟ لا يمكن التراجع عن هذا الإجراء!')) return;
+                setLoading(true);
+                try {
+                    const { error } = await supabase.from('contest_submissions').delete().not('id', 'is', null);
+                    if (error) throw error;
+                    setResults([]);
+                    alert("تم تصفير جميع نتائج المسابقة بنجاح.");
+                    // لا نحتاج لـ refreshToggle هنا، يكفي تحديث الحالة
+                } catch(e) {
+                    alert("فشل تصفير البيانات: " + e.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
             return (
                 <div className="bg-white p-6 rounded-2xl shadow animate-fade-in border-t-4 border-purple-500">
-                    <h3 className="font-bold text-xl mb-4 text-purple-800">🏆 نتائج المسابقات ({results.length})</h3>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-xl text-purple-800">🏆 نتائج المسابقات ({results.length})</h3>
+                        <button onClick={resetAllContestData} disabled={loading} className="bg-red-500 text-white px-4 py-2 rounded-xl font-bold shadow-md hover:bg-red-600 transition disabled:bg-gray-400">
+                            🗑️ تصفير الكل
+                        </button>
+                    </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-right text-sm">
                             <thead className="bg-purple-50">
@@ -102,14 +145,16 @@
                                     <tr key={r.id} className="border-b">
                                         <td className="p-3 font-bold">{r.student_name}</td>
                                         <td className="p-3 font-mono">{r.student_phone}</td>
-                                        <td className="p-3 text-gray-600">{r.student_grade || '-'}</td>
-                                        {/* ✅ عرض عنوان العدد (title.ar) */}
-                                        <td className="p-3 text-indigo-600 font-bold">{r.issue_id ? (r.issue ? r.issue.title.ar : `#${r.issue_id}`) : '-'}</td>
+                                        <td className="p-3 text-gray-600">{r.student_grade || '-'}</td> 
+                                        <td className="p-3 text-indigo-600 font-bold">{r.issueTitle || `#${r.issue_id}`}</td>
                                         <td className="p-3 font-black text-green-600">{r.score}/{r.total}</td>
                                         <td className="p-3 text-gray-500">{new Date(r.created_at).toLocaleDateString('ar-EG')}</td>
                                         <td className="p-3"><button onClick={()=>deleteResult(r.id)} className="text-red-500">❌</button></td>
                                     </tr>
                                 ))}
+                                {!loading && results.length === 0 && (
+                                     <tr><td colSpan="7" className="p-4 text-center text-gray-400">لا توجد نتائج مسابقة لعرضها.</td></tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -130,10 +175,31 @@
                 };
                 fetchLeaders();
             }, [refresh]);
+            
+            // ✅ دالة التصفير الجديدة
+            const resetAllRiddlesData = async () => {
+                 if (!confirm('تحذير: هل أنت متأكد من تصفير جميع نقاط الفوازير؟ لا يمكن التراجع عن هذا الإجراء!')) return;
+                setLoading(true);
+                try {
+                    const { error } = await supabase.from('riddles_scores').delete().not('id', 'is', null);
+                    if (error) throw error;
+                    setLeaders([]);
+                    alert("تم تصفير جميع نقاط الفوازير بنجاح.");
+                } catch(e) {
+                    alert("فشل تصفير البيانات: " + e.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
 
             return (
                 <div className="bg-white p-6 rounded-2xl shadow animate-fade-in border-t-4 border-yellow-500">
-                    <h3 className="font-bold text-xl mb-4 text-yellow-800">🥇 لوحة شرف الفوازير ({leaders.length} بطل)</h3>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-xl text-yellow-800">🥇 لوحة شرف الفوازير ({leaders.length} بطل)</h3>
+                         <button onClick={resetAllRiddlesData} disabled={loading} className="bg-red-500 text-white px-4 py-2 rounded-xl font-bold shadow-md hover:bg-red-600 transition disabled:bg-gray-400">
+                            🗑️ تصفير الكل
+                        </button>
+                    </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-right text-sm">
                             <thead className="bg-yellow-50">
@@ -340,7 +406,7 @@
                 const init = async () => {
                     const { data: s } = await supabase.from('settings').select('value').eq('key', 'config').maybeSingle();
                     if(s) { setConfig(s.value); adminPassword = s.value.adminPassword || "123"; internalPassword = s.value.internalPassword || "456"; }
-                    const { data: i } = await supabase.from('issues').select('*, title:title').order('created_at', {ascending:false}); 
+                    const { data: i } = await supabase.from('issues').select('*').order('created_at', {ascending:false}); 
                     setIssues(i || []);
                 };
                 init();
@@ -359,7 +425,7 @@
                 switch (tab) {
                     case 'issues': return <IssuesTab issues={issues} refresh={()=>setToggle(!toggle)} />;
                     case 'codes': return <CodesTab refreshIssues={toggle} />;
-                    case 'contest_results': return <ContestResultsTab refresh={toggle} />;
+                    case 'contest_results': return <ContestResultsTab issues={issues} refresh={toggle} />; // Pass issues list
                     case 'riddles_leaderboard': return <RiddlesLeaderboardTab refresh={toggle} />;
                     case 'settings': return <SettingsTab config={config} refresh={()=>setToggle(!toggle)} />;
                     default: return <OverviewTab refresh={toggle} />;
