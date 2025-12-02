@@ -18,14 +18,14 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Fredoka:wght@400;600&display=swap" rel="stylesheet">
     
     <script>
         tailwind.config = { 
             darkMode: 'class', 
             theme: { 
                 extend: { 
-                    fontFamily: { sans: ['Cairo'], en: ['Fredoka'] },
+                    fontFamily: { sans: ['Cairo', 'sans-serif'], en: ['Fredoka', 'sans-serif'] },
                     animation: { 'fade-in': 'fadeIn 0.5s ease-out', 'pop-in': 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', 'pulsered': 'pulsered 1.5s infinite', 'bounce-slow': 'bounce 2s infinite' },
                     keyframes: { 
                         fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } }, 
@@ -48,6 +48,23 @@
         @keyframes fall { to { transform: translateY(100vh) rotate(720deg); } }
         .tear { position: absolute; width: 2px; height: 15px; background: #3b82f6; opacity: 0.7; animation: rain 1s linear infinite; }
         @keyframes rain { to { transform: translateY(100vh); } }
+        
+        /* تحسينات الخطوط والحقول */
+        input, select, textarea, button { font-family: 'Cairo', sans-serif !important; }
+        
+        /* الوضع المظلم للحقول - تباين عالي */
+        .dark input, .dark select, .dark textarea {
+            background-color: #1f2937; 
+            color: #f9fafb; 
+            border-color: #4b5563;
+        }
+        .dark input::placeholder, .dark textarea::placeholder {
+            color: #9ca3af;
+        }
+        .dark select option {
+            background-color: #1f2937;
+            color: #ffffff;
+        }
     </style>
 </head>
 <body>
@@ -196,21 +213,52 @@
                     const { error } = await supabase.from('children').insert([{ full_name: data.name, phone: data.phone, grade: data.grade, talent: data.talent, points: 0 }]);
                     if (error && error.code !== '23505') throw error;
                     setAlert("تم تسجيل بياناتك بنجاح! 🎉", 'success');
+                    localStorage.setItem('bejouri_friend_joined', 'true');
                     onClose();
                 } catch (e) { setAlert("حدث خطأ بسيط، حاول مرة أخرى."); } finally { setLoading(false); }
             };
 
             return (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-indigo-900/95 backdrop-blur-xl animate-fade-in">
-                    <div className="bg-white w-full max-w-md p-8 rounded-3xl shadow-2xl relative animate-pop-in border-4 border-yellow-400">
+                    <div className="bg-white dark:bg-gray-800 w-full max-w-md p-8 rounded-3xl shadow-2xl relative animate-pop-in border-4 border-yellow-400">
                         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl font-bold">✕</button>
-                        <div className="text-center mb-6"><div className="text-5xl mb-2">🤝</div><h2 className="text-2xl font-black text-indigo-900">سجل في أصدقاء المجلة</h2><p className="text-sm text-gray-500">مش إجباري، بس بنحب نعرف أصحابنا ❤️</p></div>
+                        <div className="text-center mb-6">
+                            <div className="text-5xl mb-2">🤝</div>
+                            <h2 className="text-2xl font-black text-indigo-900 dark:text-white">سجل في أصدقاء المجلة</h2>
+                            <p className="text-sm text-gray-500 dark:text-gray-300">مش إجباري، بس بنحب نعرف أصحابنا ❤️</p>
+                        </div>
                         <div className="space-y-4">
-                            <input value={data.name} onChange={e=>setData({...data, name: e.target.value})} placeholder="الاسم ثلاثي" className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 outline-none"/>
-                            <input type="tel" value={data.phone} onChange={e=>setData({...data, phone: e.target.value})} placeholder="رقم تليفونك" className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 outline-none"/>
-                            <select value={data.grade} onChange={e=>setData({...data, grade: e.target.value})} className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 outline-none"><option>الصف الأول الابتدائي</option><option>الصف الثاني الابتدائي</option><option>الصف الثالث الابتدائي</option><option>الصف الرابع الابتدائي</option><option>الصف الخامس الابتدائي</option><option>الصف السادس الابتدائي</option></select>
-                            <input value={data.talent} onChange={e=>setData({...data, talent: e.target.value})} placeholder="موهبتك إيه؟" className="w-full p-3 bg-gray-50 border-2 rounded-xl font-bold text-indigo-900 outline-none"/>
-                            <button onClick={handleSubmit} disabled={loading} className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-4 rounded-xl font-black text-xl shadow-lg hover:scale-105 transition transform mt-2">{loading ? "جاري التسجيل..." : "سجل الآن 🚀"}</button>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">الاسم ثلاثي</label>
+                                <input value={data.name} onChange={e=>setData({...data, name: e.target.value})} className="w-full p-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl font-bold text-indigo-900 dark:text-white outline-none focus:border-yellow-400 dark:focus:border-yellow-400 transition"/>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">رقم التليفون</label>
+                                <input type="tel" value={data.phone} onChange={e=>setData({...data, phone: e.target.value})} className="w-full p-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl font-bold text-indigo-900 dark:text-white outline-none focus:border-yellow-400 dark:focus:border-yellow-400 transition"/>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">السنة الدراسية</label>
+                                <select value={data.grade} onChange={e=>setData({...data, grade: e.target.value})} className="w-full p-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl font-bold text-indigo-900 dark:text-white outline-none focus:border-yellow-400 dark:focus:border-yellow-400 transition cursor-pointer">
+                                    <option>الصف الأول الابتدائي</option>
+                                    <option>الصف الثاني الابتدائي</option>
+                                    <option>الصف الثالث الابتدائي</option>
+                                    <option>الصف الرابع الابتدائي</option>
+                                    <option>الصف الخامس الابتدائي</option>
+                                    <option>الصف السادس الابتدائي</option>
+                                    
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">موهبتك إيه؟</label>
+                                <input value={data.talent} onChange={e=>setData({...data, talent: e.target.value})} placeholder="رسم، ترنيم، شعر..." className="w-full p-3 bg-gray-50 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl font-bold text-indigo-900 dark:text-white outline-none focus:border-yellow-400 dark:focus:border-yellow-400 transition"/>
+                            </div>
+                            
+                            <button onClick={handleSubmit} disabled={loading} className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-4 rounded-xl font-black text-xl shadow-lg hover:scale-105 transition transform mt-4">
+                                {loading ? "جاري التسجيل..." : "سجل الآن 🚀"}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -218,26 +266,59 @@
         }
 
         function ContestResultModal({ score, total, issueId, onClose, setAlert }) {
-            const [data, setData] = React.useState({ name: '', phone: '' });
+            // ✅ تم إزالة حقل الموهبة من هنا
+            const [data, setData] = React.useState({ name: '', phone: '', grade: 'الصف الأول الابتدائي' });
             const [loading, setLoading] = React.useState(false);
+            
             const saveResult = async () => {
                 if(!data.name || !data.phone) return setAlert("اكتب اسمك ورقمك لحفظ النتيجة!");
                 setLoading(true);
                 try {
-                    await supabase.from('contest_submissions').insert([{ issue_id: issueId, student_name: data.name, student_phone: data.phone, score: score, total: total }]);
+                    // ✅ حفظ حقل السنة فقط (بدون الموهبة)
+                    await supabase.from('contest_submissions').insert([{ 
+                        issue_id: issueId, 
+                        student_name: data.name, 
+                        student_phone: data.phone, 
+                        score: score, 
+                        total: total,
+                        student_grade: data.grade, // ✅ حقل جديد
+                        student_talent: '' // إرسال قيمة فارغة لعمود الموهبة
+                    }]);
                     setAlert("تم حفظ نتيجتك يا بطل! 🏆", 'success');
                     onClose();
-                } catch(e) { setAlert("خطأ في الحفظ، حاول تاني."); } finally { setLoading(false); }
+                } catch(e) { 
+                    console.error("Contest Save Error:", e);
+                    setAlert("خطأ في الحفظ، تأكد من إضافة الأعمدة في الداشبورد."); 
+                } finally { setLoading(false); }
             };
+
             return (
                 <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center border-4 border-purple-500 animate-pop-in">
+                    <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center border-4 border-purple-500 animate-pop-in">
                         <div className="text-6xl mb-4">📸</div>
-                        <h3 className="text-2xl font-black text-purple-900 mb-2">مبروك النجاح!</h3>
-                        <p className="text-gray-600 mb-6">سجل اسمك عشان تظهر في لوحة الشرف</p>
-                        <input value={data.name} onChange={e=>setData({...data, name: e.target.value})} placeholder="الاسم بالكامل" className="w-full p-3 border-2 rounded-xl mb-3 font-bold"/>
-                        <input value={data.phone} onChange={e=>setData({...data, phone: e.target.value})} placeholder="رقم التليفون" className="w-full p-3 border-2 rounded-xl mb-4 font-bold"/>
-                        <button onClick={saveResult} disabled={loading} className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700">{loading?"جاري الحفظ...":"حفظ النتيجة 💾"}</button>
+                        <h3 className="text-2xl font-black text-purple-900 dark:text-white mb-2">مبروك النجاح!</h3>
+                        <p className="text-gray-600 dark:text-gray-300 mb-6">سجل اسمك عشان تظهر في لوحة الشرف</p>
+                        
+                        <div className="space-y-3">
+                            <input value={data.name} onChange={e=>setData({...data, name: e.target.value})} placeholder="الاسم بالكامل" className="w-full p-3 border-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl font-bold"/>
+                            <input value={data.phone} onChange={e=>setData({...data, phone: e.target.value})} placeholder="رقم التليفون" className="w-full p-3 border-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl font-bold"/>
+                            
+                            {/* ✅ حقل السنة الدراسية (ابتدائي فقط) */}
+                            <select value={data.grade} onChange={e=>setData({...data, grade: e.target.value})} className="w-full p-3 border-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl font-bold cursor-pointer">
+                                <option>الصف الأول الابتدائي</option>
+                                <option>الصف الثاني الابتدائي</option>
+                                <option>الصف الثالث الابتدائي</option>
+                                <option>الصف الرابع الابتدائي</option>
+                                <option>الصف الخامس الابتدائي</option>
+                                <option>الصف السادس الابتدائي</option>
+                            </select>
+
+                            
+                        </div>
+
+                        <button onClick={saveResult} disabled={loading} className="w-full bg-purple-600 text-white py-3 rounded-xl font-black hover:bg-purple-700 mt-4">
+                            {loading?"جاري الحفظ...":"حفظ النتيجة 💾"}
+                        </button>
                         <button onClick={onClose} className="mt-3 text-gray-400 text-sm underline">لا شكراً</button>
                     </div>
                 </div>
@@ -321,7 +402,9 @@
 
             const submitAnswers = async () => {
                 const questions = issue.contest || [];
-                if (Object.keys(userAnswers).length < questions.length) return setAlert("من فضلك جاوب على كل الأسئلة!");
+                const answeredCount = Object.keys(userAnswers).filter(i => userAnswers[i] !== '').length;
+                
+                if (answeredCount < questions.length) return setAlert("من فضلك جاوب على كل الأسئلة!");
                 setLoading(true);
                 try {
                     let prompt = `Act as a smart, flexible teacher grading a quiz.
@@ -334,12 +417,24 @@
                     Questions: `;
                     questions.forEach((q, i) => prompt += `Q${i+1}: ${q.question} \n Model: ${q.answer} \n Student: ${userAnswers[i]||"No"} \n ---\n`);
                     prompt += `Return ONLY JSON: { "score": number, "total": number, "details": [{ "q_index": 0, "correct": true/false, "feedback": "Short Arabic feedback" }], "final_feedback": "Encouraging Arabic comment" }`;
+                    
                     const rawResponse = await aiCall(prompt);
                     const jsonResult = JSON.parse(rawResponse.replace(/```json/g, '').replace(/```/g, '').trim());
+                    
                     setResult(jsonResult);
                     setSubmitted(true);
-                    if(jsonResult.score >= Math.ceil(jsonResult.total/2)) setTimeout(() => setShowSaveModal(true), 2000);
-                } catch (e) { setAlert("حدث خطأ أثناء التصحيح."); } finally { setLoading(false); }
+                    
+                    if(jsonResult.score >= Math.ceil(jsonResult.total/2)) {
+                        setTimeout(() => setShowSaveModal(true), 2000);
+                    } else {
+                        setAlert("للأسف، لم تنجح في المسابقة. حاول مرة أخرى!", 'error');
+                    }
+                } catch (e) { 
+                    console.error("Contest Grading Error:", e);
+                    setAlert("حدث خطأ أثناء التصحيح."); 
+                } finally { 
+                    setLoading(false); 
+                }
             };
 
             const questions = issue.contest || [];
@@ -427,16 +522,20 @@
             const html5QrCodeRef = React.useRef(null);
 
             React.useEffect(() => {
+                // Cleanup function to stop camera when component unmounts
                 return () => { if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) { html5QrCodeRef.current.stop().catch(err => console.error(err)); } };
             }, []);
 
             const startScan = () => { 
                 setScanning(true); 
+                // Set window global stop function for external cleanup
+                window.stopScan = () => { if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) html5QrCodeRef.current.stop().catch(err => console.error(err)); html5QrCodeRef.current = null; setScanning(false); delete window.stopScan; };
+                
                 setTimeout(() => { 
                     const html5QrCode = new Html5Qrcode("reader");
                     html5QrCodeRef.current = html5QrCode;
                     html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, 
-                        (decoded) => { html5QrCode.stop().then(() => { html5QrCodeRef.current = null; setScanning(false); onUnlock(decoded); }).catch(err => console.error(err)); }, 
+                        (decoded) => { window.stopScan(); onUnlock(decoded); }, 
                         (err) => { }
                     ).catch(err => { console.error(err); setScanning(false); }); 
                 }, 100); 
@@ -490,18 +589,26 @@
                 return callGemini(prompt, aiKeys, activeKeyIndex, setActiveKeyIndex, setAiKeys, setAllKeysFailed);
             }, [aiKeys, activeKeyIndex]);
 
+            // ✅ Main Data Fetching (Keys and Issues)
             React.useEffect(() => {
                 if (theme === 'dark') document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark');
                 document.documentElement.lang = lang; document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
                 
                 const init = async () => {
+                    // 1. Fetch Settings (AI Keys)
                     const { data: settings } = await supabase.from('settings').select('value').eq('key', 'config').maybeSingle();
+                    let keys = [];
                     if (settings?.value) {
                         setAppBg(`url("${settings.value.appBackground || ''}")`);
                         setAppLogo(settings.value.appLogo || '');
                         setIntroData({ title: settings.value.introTitle, body: settings.value.introBody });
-                        setAiKeys(settings.value.gemini_keys_list || []);
+                        keys = settings.value.gemini_keys_list || [];
+                        setAiKeys(keys);
+                    } else {
+                        setAiKeys([]);
                     }
+
+                    // 2. Fetch Issues (Must run after keys are fetched/set for stability)
                     const { data: issuesData } = await supabase.from('issues').select('*').order('created_at', { ascending: false });
                     if (issuesData) setIssues(issuesData);
                 };
@@ -510,16 +617,21 @@
 
             // ✅ Daily Verse Logic
             React.useEffect(() => {
-                if (issues.length > 0 && aiKeys.length > 0) {
+                // Ensure issues and keys are loaded before trying to generate the verse
+                if (issues.length > 0 && aiKeys.length > 0 && !allKeysFailed) {
                     const latest = issues[0];
                     const today = new Date().toDateString();
                     const storageKey = `bejouri_daily_verse_${latest.id}_${today}`;
                     
                     const cached = localStorage.getItem(storageKey);
+                    
+                    // If cached, use it
                     if (cached) {
                         setDailyVerse(JSON.parse(cached));
                     } else {
-                        if (!dailyVerse) setDailyVerse(latest.verse); // Use default initially
+                        // Use the default verse from the issue while waiting for AI
+                        if (!dailyVerse && latest.verse && latest.verse.text) setDailyVerse(latest.verse); 
+                        
                         const fetchVerse = async () => {
                             try {
                                 const prompt = `You are a Sunday School teacher. Suggest a Bible verse in Arabic related to the topic: "${latest.title.ar}". Return ONLY valid JSON: { "text": "Verse text", "ref": "Reference" }.`;
@@ -529,12 +641,18 @@
                                     setDailyVerse(json);
                                     localStorage.setItem(storageKey, JSON.stringify(json));
                                 }
-                            } catch (e) { setDailyVerse(latest.verse); }
+                            } catch (e) { 
+                                // Fallback to the verse stored in the issue itself on API failure
+                                setDailyVerse(latest.verse); 
+                            }
                         };
                         fetchVerse();
                     }
+                } else if (issues.length > 0 && !dailyVerse) {
+                    // Fallback if AI keys are missing or failed but issues are present
+                     setDailyVerse(issues[0].verse); 
                 }
-            }, [issues, aiKeys, aiCallWithKeys]);
+            }, [issues, aiKeys, aiCallWithKeys, dailyVerse, allKeysFailed]);
 
             const handleReflection = async (verse) => {
                 setReflecting(true); setReflection("");
@@ -584,14 +702,14 @@
                     </div>
 
                     <div className="p-4 space-y-4 pb-20 relative z-0">
-                        {/* ✅ Updated Daily Verse Section */}
-                        {issues.length > 0 && dailyVerse && (
+                        {/* ✅ Daily Verse Section */}
+                        {issues.length > 0 && dailyVerse && dailyVerse.text && (
                             <div className="animate-fade-in my-8">
                                 <div className="flex items-start gap-3 relative">
                                     <div className="w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center text-2xl shadow-md border-2 border-indigo-100 text-white z-10">✝️</div>
                                     <div className="flex-1 verse-bubble p-4 shadow-xl">
                                         <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">{t.verseTitle}</h4>
-                                        <p className="text-sm font-bold leading-relaxed">"{dailyVerse.text}"</p>
+                                        <p className="text-lg font-bold leading-relaxed">{dailyVerse.text}</p>
                                         <div className="text-right text-xs text-gray-500 mt-2 font-bold">— {dailyVerse.ref}</div>
                                         <button onClick={()=>handleReflection(dailyVerse.text)} className="mt-3 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 px-3 py-1 rounded-full font-bold">{reflecting ? "..." : t.reflectBtn}</button>
                                     </div>
@@ -624,7 +742,9 @@
                     </button>
 
                     {showFriendsForm && <FriendsModal t={t} onClose={() => setShowFriendsForm(false)} setAlert={setAppAlert} />}
+                    
                     {showUnlock && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"><div className="bg-white dark:bg-gray-900 w-full max-w-md p-6 rounded-3xl relative animate-pop-in shadow-2xl"><button onClick={()=>{setShowUnlock(false); if(window.stopScan) window.stopScan();}} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">✕</button><UnlockView onUnlock={handleUnlock} t={t} error={unlockError} processing={verifying} /></div></div>}
+                    
                     {alertMessage && <MessageModal message={alertMessage} onClose={() => setAlertMessage(null)} type={alertType} />}
                 </div>
             );
