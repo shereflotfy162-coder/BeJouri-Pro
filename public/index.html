@@ -75,6 +75,8 @@
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96ZG55ZXB4ZmNqemxkcGt0ZWF1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDEwNTM3MiwiZXhwIjoyMDc5NjgxMzcyfQ.mtqFcdRZeidpC0Ul8r_8FJOJalToT4lZeHNqd3-fsOg";
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
+        const POINTS = { RIDDLE: 10 };
+        
         const TRANSLATIONS = {
             ar: {
                 appTitle: "Beجوري", subTitle: "أبطال الكنيسة", loading: "جاري التحميل...",
@@ -91,7 +93,10 @@
                 contestTab: "🏆 المسابقة", contestSubmit: "تصحيح الإجابات ✅", contestResult: "نتيجة المسابقة",
                 activitiesTab: "✨ أنشطة",
                 storyTab: "✨ قصص",
-                reflectBtn: "✨ تأمل", reflectTitle: "تأمل في الآية"
+                reflectBtn: "✨ تأمل", reflectTitle: "تأمل في الآية",
+                riddleUserModalTitle: "بوابة الأبطال", riddleUserModalBody: "للتسجيل في لوحة الشرف، من فضلك أدخل اسمك ورقم هاتفك (مرة واحدة فقط).",
+                riddleLeaderboard: "لوحة شرف الفوازير",
+                riddleHeroes: "أبطال الفوازير 🥇" // New button title
             },
             en: {
                 appTitle: "BeJouri", subTitle: "Church Heroes", loading: "Loading...",
@@ -108,7 +113,10 @@
                 contestTab: "🏆 Contest", contestSubmit: "Grade Answers ✅", contestResult: "Contest Result",
                 activitiesTab: "✨ Activities",
                 storyTab: "✨ Stories",
-                reflectBtn: "✨ Reflect", reflectTitle: "Verse Reflection"
+                reflectBtn: "✨ Reflect", reflectTitle: "Verse Reflection",
+                riddleUserModalTitle: "Heroes Gate", riddleUserModalBody: "To join the leaderboard, please enter your name and phone number (only once).",
+                riddleLeaderboard: "Riddles Leaderboard",
+                riddleHeroes: "Riddle Heroes 🥇"
             }
         };
 
@@ -272,6 +280,7 @@
                 if(!data.name || !data.phone) return setAlert("اكتب اسمك ورقمك لحفظ النتيجة!");
                 setLoading(true);
                 try {
+                    // تم إزالة حقل الموهبة من هنا
                     await supabase.from('contest_submissions').insert([{ 
                         issue_id: issueId, 
                         student_name: data.name, 
@@ -300,7 +309,6 @@
                             <input value={data.name} onChange={e=>setData({...data, name: e.target.value})} placeholder="الاسم بالكامل" className="w-full p-3 border-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl font-bold"/>
                             <input value={data.phone} onChange={e=>setData({...data, phone: e.target.value})} placeholder="رقم التليفون" className="w-full p-3 border-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl font-bold"/>
                             
-                            {/* ✅ حقل السنة الدراسية (ابتدائي فقط) */}
                             <select value={data.grade} onChange={e=>setData({...data, grade: e.target.value})} className="w-full p-3 border-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl font-bold cursor-pointer">
                                 <option>الصف الأول الابتدائي</option>
                                 <option>الصف الثاني الابتدائي</option>
@@ -309,8 +317,6 @@
                                 <option>الصف الخامس الابتدائي</option>
                                 <option>الصف السادس الابتدائي</option>
                             </select>
-
-                            
                         </div>
 
                         <button onClick={saveResult} disabled={loading} className="w-full bg-purple-600 text-white py-3 rounded-xl font-black hover:bg-purple-700 mt-4">
@@ -321,9 +327,72 @@
                 </div>
             );
         }
+        
+        function RiddleUserModal({ t, onClose, onUserSet, setAlert }) {
+            const [mode, setMode] = React.useState('login'); 
+            const [data, setData] = React.useState({ name: '', phone: '' });
+            const [loading, setLoading] = React.useState(false);
+            
+            const handleFormSubmit = async () => {
+                if (!data.phone) return setAlert("من فضلك أدخل رقم الهاتف!");
+                setLoading(true);
+                
+                try {
+                    const { data: existingUser, error: fetchError } = await supabase.from('riddles_scores').select('*').eq('user_phone', data.phone).maybeSingle();
+                    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+                    
+                    if (existingUser) {
+                        onUserSet(existingUser);
+                        setAlert(`أهلاً بك يا ${existingUser.user_name.split(' ')[0]}!`, 'success');
+                        localStorage.setItem('bejouri_riddle_user', JSON.stringify(existingUser));
+                        onClose();
+                    } else if (mode === 'register' && data.name) {
+                        const { data: newUser, error: insertError } = await supabase.from('riddles_scores').insert([{ user_name: data.name, user_phone: data.phone, score: 0 }]).select('*').single();
+                        if (insertError) throw insertError;
 
-        function ActivitiesView({ t, setAlert, aiCall }) {
-            const [mode, setMode] = React.useState('menu'); 
+                        onUserSet(newUser);
+                        setAlert("تم تسجيلك في لوحة شرف الفوازير! 🎉", 'success');
+                        localStorage.setItem('bejouri_riddle_user', JSON.stringify(newUser));
+                        onClose();
+                    } else {
+                        setMode('register');
+                        setAlert("هذا الرقم غير مسجل. يرجى إدخال الاسم للتسجيل.", 'warning');
+                    }
+                } catch (e) {
+                    console.error("Riddle Auth Error:", e);
+                    setAlert("خطأ في الاتصال بقاعدة البيانات.");
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            return (
+                <div className="fixed inset-0 z-[65] flex items-center justify-center p-4 bg-purple-900/95 backdrop-blur-xl animate-fade-in">
+                    <div className="bg-white dark:bg-gray-800 w-full max-w-sm p-8 rounded-3xl shadow-2xl relative animate-pop-in border-4 border-yellow-400">
+                        <div className="text-center mb-6">
+                            <div className="text-5xl mb-2">🏅</div>
+                            <h2 className="text-xl font-black text-purple-800 dark:text-white">{t.riddleUserModalTitle}</h2>
+                            <p className="text-sm text-gray-500 dark:text-gray-300 mt-2">{t.riddleUserModalBody}</p>
+                        </div>
+                        <div className="flex justify-center mb-4">
+                            <button onClick={()=>setMode('login')} className={`px-4 py-2 font-bold ${mode === 'login' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}>دخول</button>
+                            <button onClick={()=>setMode('register')} className={`px-4 py-2 font-bold ${mode === 'register' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}>تسجيل جديد</button>
+                        </div>
+                        <div className="space-y-4">
+                            {mode === 'register' && <input value={data.name} onChange={e=>setData({...data, name: e.target.value})} placeholder="اسمك بالكامل" className="w-full p-3 border-2 rounded-xl dark:bg-gray-700 dark:text-white outline-none"/>}
+                            <input type="tel" value={data.phone} onChange={e=>setData({...data, phone: e.target.value})} placeholder="رقم هاتفك" className="w-full p-3 border-2 rounded-xl dark:bg-gray-700 dark:text-white outline-none"/>
+                            <button onClick={handleFormSubmit} disabled={loading} className="w-full bg-purple-600 text-white py-3 rounded-xl font-black hover:bg-purple-700 transition">
+                                {loading ? "جاري العملية..." : (mode === 'register' ? "تسجيل وبدء اللعب 🚀" : "دخول وبدء اللعب 🏅")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+
+        function ActivitiesView({ t, setAlert, aiCall, riddleUser, setRiddleUser }) {
+            const [mode, setMode] = React.useState(riddleUser ? 'menu' : 'register'); 
             const [data, setData] = React.useState(null); 
             const [input, setInput] = React.useState(""); 
             const [feedback, setFeedback] = React.useState(""); 
@@ -331,7 +400,25 @@
             
             const [history, setHistory] = React.useState(JSON.parse(localStorage.getItem('bejouri_riddle_history') || '[]'));
 
+            const updateRiddleScore = async (score) => {
+                if (!riddleUser || score === 0) return;
+                
+                try {
+                    const newScore = riddleUser.score + score;
+                    const { data: updatedUser, error } = await supabase.from('riddles_scores')
+                        .update({ score: newScore, last_update: new Date() })
+                        .eq('id', riddleUser.id)
+                        .select('*').single();
+                    if (error) throw error;
+                    setRiddleUser(updatedUser);
+                } catch(e) {
+                    console.error("Failed to update riddle score:", e);
+                }
+            };
+
             const generateRiddle = async () => {
+                if (!riddleUser) return setMode('register'); 
+
                 setLoading(true); setFeedback(""); setInput("");
                 try { 
                     const avoidList = history.slice(-20).join(", "); 
@@ -366,9 +453,14 @@
                     const rawText = await aiCall(prompt);
                     const json = JSON.parse(rawText.replace(/```json/g, '').replace(/```/g, '').trim());
                     setFeedback(json.correct ? "correct" : "wrong");
+                    if (json.correct) {
+                        await updateRiddleScore(POINTS.RIDDLE);
+                    }
                 } catch(e) { setFeedback("wrong"); } 
                 setLoading(false);
             };
+
+            if(mode === 'register') return <RiddleUserModal t={t} onClose={()=>setMode('menu')} onUserSet={(user)=>{setRiddleUser(user); setMode('menu');}} setAlert={setAlert} />;
 
             if(mode === 'menu') return <div className="h-full flex flex-col items-center justify-center p-6 gap-4"><button onClick={()=>{setMode('riddle'); generateRiddle();}} className="w-full max-w-xs p-6 bg-purple-500 rounded-2xl text-white font-black text-xl shadow-lg hover:bg-purple-600 transition transform hover:scale-105">{t.actRiddle}</button></div>;
             
@@ -377,6 +469,7 @@
                     {feedback === 'correct' && <div className="absolute inset-0 pointer-events-none z-50 flex items-center justify-center">{[...Array(20)].map((_, i) => <div key={i} className="confetti" style={{left: `${Math.random()*100}%`, animationDuration:`${Math.random()*2+1}s`}}></div>)}</div>}
                     {feedback === 'wrong' && <div className="absolute inset-0 pointer-events-none z-50"><div className="absolute inset-0 bg-blue-900/20"></div>{[...Array(10)].map((_, i) => <div key={i} className="tear" style={{left: `${Math.random()*100}%`}}></div>)}</div>}
                     <button onClick={()=>setMode('menu')} className="self-start mb-4 text-indigo-600 dark:text-indigo-400 font-bold z-10 relative"><span className="transform rotate-180 inline-block">➜</span> العودة</button>
+                    {riddleUser && <div className="self-end bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-bold shadow-md relative z-10">نقاطك: {riddleUser.score} ⭐</div>}
                     {loading && !data ? (<div className="flex flex-col items-center justify-center h-full"><span className="text-4xl animate-bounce">🎲</span><p className="mt-4 text-gray-500">{t.loading}</p></div>) : (
                         <div className="flex flex-col items-center z-10 relative w-full">
                             <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl mb-4 w-full border-2 border-purple-200"><p className="text-lg font-bold text-gray-800 dark:text-white leading-relaxed">{data?.riddle}</p></div>
@@ -490,35 +583,20 @@
             const hasContest = issue.contest && issue.contest.length > 0;
             const hideMagazine = issue.hide_magazine === true; 
             
-            // ✅ تغيير الترتيب: ابدأ بـ 'video' إذا كانت المجلة مخفية أو 'mag' (المجلة) إذا كانت مرئية.
-            const initialTab = hideMagazine ? 'video' : 'mag';
+            // ✅ Logic to set the initial tab
+            let initialTab;
+            if (!hideMagazine) {
+                initialTab = 'mag';
+            } else if (issue.videos && issue.videos.length > 0) {
+                 initialTab = 'video';
+            } else if (hasContest) {
+                initialTab = 'contest';
+            } else {
+                initialTab = 'activities';
+            }
+
             const [tab, setTab] = React.useState(initialTab);
 
-            // ✅ إصلاح زر التأمل: تم فصل دالة التأمل وإرسالها كـ prop
-            const handleReflection = async (verse) => {
-                // Check if reflection is already set from the App component (main hook)
-                const storedReflection = localStorage.getItem('bejouri_reflection_cache');
-                if (storedReflection) {
-                    const parsed = JSON.parse(storedReflection);
-                    if (parsed.verse === verse) return; // Use the value from App hook
-                }
-
-                const loadingAlertKey = `reflection_loading_${Date.now()}`;
-                setAlert("جاري توليد التأمل، قد يستغرق الأمر لحظات...", 'warning');
-                
-                try {
-                    const text = await aiCall(`Write a short Coptic contemplation for a child in Arabic about: "${verse}"`);
-                    // Update App's reflection state if available, or just clear alert
-                    setAlert("تم توليد التأمل بنجاح!", 'success');
-                    // Store the result locally for display in the parent (App) component
-                    localStorage.setItem('bejouri_reflection_cache', JSON.stringify({ verse, text }));
-                    // Force re-render of App to fetch the stored reflection if necessary
-                    window.dispatchEvent(new Event('storage')); 
-                } catch(e) { 
-                    setAlert(t.apiError, 'error'); 
-                } 
-            };
-            
             return (
                 <div className="h-screen flex flex-col bg-white dark:bg-gray-900">
                     <div className="flex items-center justify-between p-3 border-b dark:border-gray-800 shadow-sm z-20">
@@ -535,7 +613,7 @@
                     <div className="flex-1 bg-gray-100 dark:bg-black relative overflow-hidden">
                         {!hideMagazine && tab === 'mag' && <iframe src={issue.magazine_url} className="w-full h-full border-none bg-white"></iframe>}
                         {tab === 'video' && <div className="h-full overflow-y-auto p-4 space-y-6">{issue.videos && issue.videos.map((v, i) => (<div key={i} className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700"><h3 className="text-lg font-bold text-gray-800 dark:text-white mb-3 text-right">{v.title}</h3><div className="aspect-video bg-black rounded-xl overflow-hidden shadow-inner"><iframe src={getYoutubeEmbed(v.url)} className="w-full h-full" allowFullScreen></iframe></div></div>))}</div>}
-                        {tab === 'activities' && <ActivitiesView t={t} setAlert={setAlert} aiCall={aiCall} />}
+                        {tab === 'activities' && <ActivitiesView t={t} setAlert={setAlert} aiCall={aiCall} riddleUser={window.riddleUser} setRiddleUser={window.setRiddleUser} />}
                         {hasContest && tab === 'contest' && <ContestView issue={issue} t={t} setAlert={setAlert} aiCall={aiCall} />}
                     </div>
                 </div>
@@ -548,7 +626,6 @@
             const html5QrCodeRef = React.useRef(null);
 
             React.useEffect(() => {
-                // Cleanup function to stop camera when component unmounts
                 return () => { if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) { html5QrCodeRef.current.stop().catch(err => console.error(err)); } };
             }, []);
 
@@ -577,6 +654,91 @@
             );
         }
 
+        // ✅ NEW: Riddle Heroes Modal (Leaderboard)
+        function RiddleHeroesModal({ t, onClose, riddleUser }) {
+            const [leaders, setLeaders] = React.useState([]);
+            const [loading, setLoading] = React.useState(true);
+            const [userRank, setUserRank] = React.useState(null);
+
+            const fetchLeadersAndRank = async () => {
+                setLoading(true);
+                // 1. Fetch Leaders (Top 3)
+                const { data: topLeaders } = await supabase.from('riddles_scores').select('*').order('score', { ascending: false }).limit(3);
+                setLeaders(topLeaders || []);
+                
+                // 2. Calculate Rank (only if user is logged in)
+                if (riddleUser?.user_phone) {
+                    const { count } = await supabase.from('riddles_scores')
+                        .select('id', { count: 'exact' })
+                        .order('score', { ascending: false });
+                    
+                    const myRank = topLeaders.findIndex(l => l.user_phone === riddleUser.user_phone);
+
+                    if (myRank !== -1) {
+                        setUserRank({ rank: myRank + 1, total: count });
+                    } else if (count > 3) {
+                         // Fallback for calculating rank if outside top 3
+                         const { count: higherCount } = await supabase.from('riddles_scores')
+                            .select('id', { count: 'exact' })
+                            .gt('score', riddleUser.score);
+                        setUserRank({ rank: higherCount + 1, total: count });
+                    } else {
+                        setUserRank({ rank: count, total: count });
+                    }
+                } else {
+                    setUserRank(null);
+                }
+                setLoading(false);
+            };
+
+            React.useEffect(() => {
+                fetchLeadersAndRank();
+                const interval = setInterval(fetchLeadersAndRank, 60000); // Refresh every minute
+                return () => clearInterval(interval);
+            }, [riddleUser]);
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-purple-900/90 backdrop-blur-md animate-fade-in">
+                    <div className="bg-white dark:bg-gray-800 w-full max-w-sm p-8 rounded-3xl shadow-2xl relative animate-pop-in border-4 border-yellow-400">
+                        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl font-bold">✕</button>
+                        <h2 className="text-2xl font-black text-yellow-700 dark:text-yellow-400 mb-6 text-center">🥇 {t.riddleHeroes}</h2>
+                        
+                        <div className="space-y-4">
+                            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-inner">
+                                <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-3 text-center">أعلى الأبطال</h3>
+                                {loading ? (<p className="text-center text-gray-500">جاري التحميل...</p>) : (
+                                    <div className="space-y-2">
+                                        {leaders.map((l, index) => (
+                                            <div key={l.id} className="flex justify-between items-center p-3 rounded-lg bg-white dark:bg-gray-800 shadow-md">
+                                                <span className={`font-black text-lg ${index < 3 ? 'text-yellow-500' : 'text-purple-600'}`}>#{index + 1}</span>
+                                                <span className="font-bold text-gray-800 dark:text-white flex-1 text-right mr-3">{l.user_name.split(' ')[0]}</span>
+                                                <span className="font-black text-green-600">{l.score} ⭐</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {riddleUser && userRank && (
+                                <div className="bg-indigo-50 dark:bg-indigo-900 p-4 rounded-xl text-center border-2 border-indigo-400">
+                                    <h3 className="font-black text-indigo-700 dark:text-indigo-300 mb-2">أنا البطل!</h3>
+                                    <p className="text-gray-700 dark:text-gray-300 font-bold">نقاطي: <span className="font-black text-xl text-green-600">{riddleUser.score}</span></p>
+                                    {userRank.rank && <p className="text-gray-700 dark:text-gray-300 font-bold">ترتيبي الحالي: <span className="font-black text-xl text-red-600">#{userRank.rank}</span></p>}
+                                </div>
+                            )}
+                            {!riddleUser && (
+                                <div className="p-2 text-center text-gray-500 dark:text-gray-300 text-sm">
+                                    قم بتسجيل الدخول في تبويب الأنشطة لترى ترتيبك!
+                                </div>
+                            )}
+
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+
         function App() {
             const [view, setView] = React.useState("home");
             const [lang, setLang] = React.useState(localStorage.getItem('bejouri_lang') || 'ar');
@@ -596,8 +758,8 @@
             const [introData, setIntroData] = React.useState({}); 
             const [showIntro, setShowIntro] = React.useState(true); 
             const [showFriendsForm, setShowFriendsForm] = React.useState(false); 
+            const [showRiddlesHeroes, setShowRiddlesHeroes] = React.useState(false); // NEW STATE
             
-            // State for Reflection (managed via localStorage event listener)
             const [reflection, setReflection] = React.useState("");
             const [reflecting, setReflecting] = React.useState(false);
             
@@ -607,7 +769,18 @@
             const [aiKeys, setAiKeys] = React.useState([]);
             const [activeKeyIndex, setActiveKeyIndex] = React.useState(0);
             const [allKeysFailed, setAllKeysFailed] = React.useState(false);
+
+            const [riddleUser, setRiddleUser] = React.useState(() => {
+                const storedUser = localStorage.getItem('bejouri_riddle_user');
+                return storedUser ? JSON.parse(storedUser) : null;
+            });
             
+            // Expose riddleUser and setter globally for ActivitiesView
+            React.useEffect(() => {
+                window.riddleUser = riddleUser;
+                window.setRiddleUser = setRiddleUser;
+            }, [riddleUser]);
+
             const t = TRANSLATIONS[lang];
             const setAppAlert = (msg, type='error') => { setAlertMessage(msg); setAlertType(type); };
 
@@ -620,25 +793,18 @@
                 const handleStorageChange = () => {
                     const cache = localStorage.getItem('bejouri_reflection_cache');
                     if (cache) {
-                        try {
-                            setReflection(JSON.parse(cache).text);
-                        } catch {
-                            setReflection("");
-                        }
-                    } else {
-                         setReflection("");
-                    }
+                        try { setReflection(JSON.parse(cache).text); } catch { setReflection(""); }
+                    } else { setReflection(""); }
                 };
-                handleStorageChange(); // Initial check
+                handleStorageChange(); 
                 window.addEventListener('storage', handleStorageChange);
                 return () => window.removeEventListener('storage', handleStorageChange);
             }, []);
             
-            // ✅ Action to trigger AI reflection
             const handleReflectionClick = async (verse) => {
                 setReflecting(true); 
-                setReflection(""); // Clear current reflection
-                localStorage.removeItem('bejouri_reflection_cache'); // Clear cache
+                setReflection(""); 
+                localStorage.removeItem('bejouri_reflection_cache');
                 
                 try {
                     const text = await aiCallWithKeys(`Write a short Coptic contemplation for a child in Arabic about: "${verse}"`);
@@ -651,13 +817,12 @@
                 setReflecting(false); 
             };
             
-            // ✅ Main Data Fetching (Keys and Issues)
+            // Main Data Fetching (Keys and Issues)
             React.useEffect(() => {
                 if (theme === 'dark') document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark');
                 document.documentElement.lang = lang; document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
                 
                 const init = async () => {
-                    // 1. Fetch Settings (AI Keys)
                     const { data: settings } = await supabase.from('settings').select('value').eq('key', 'config').maybeSingle();
                     let keys = [];
                     if (settings?.value) {
@@ -670,16 +835,19 @@
                         setAiKeys([]);
                     }
 
-                    // 2. Fetch Issues (Must run after keys are fetched/set for stability)
                     const { data: issuesData } = await supabase.from('issues').select('*').order('created_at', { ascending: false });
                     if (issuesData) setIssues(issuesData);
+                    
+                    if (riddleUser?.user_phone) {
+                        const { data: updatedUser } = await supabase.from('riddles_scores').select('*').eq('user_phone', riddleUser.user_phone).maybeSingle();
+                        if (updatedUser) setRiddleUser(updatedUser);
+                    }
                 };
                 init();
             }, [lang, theme]);
 
-            // ✅ Daily Verse Logic
+            // Daily Verse Logic
             React.useEffect(() => {
-                // Check if issues and keys are ready
                 if (issues.length > 0 && aiKeys.length > 0 && !allKeysFailed) {
                     const latest = issues[0];
                     const today = new Date().toDateString();
@@ -690,7 +858,6 @@
                     if (cached) {
                         setDailyVerse(JSON.parse(cached));
                     } else {
-                        // Use the default verse from the issue while waiting for AI
                         if (!dailyVerse && latest.verse && latest.verse.text) setDailyVerse(latest.verse); 
                         
                         const fetchVerse = async () => {
@@ -703,14 +870,12 @@
                                     localStorage.setItem(storageKey, JSON.stringify(json));
                                 }
                             } catch (e) { 
-                                // Fallback to the verse stored in the issue itself on API failure
                                 setDailyVerse(latest.verse); 
                             }
                         };
                         fetchVerse();
                     }
                 } else if (issues.length > 0 && !dailyVerse) {
-                    // Fallback if AI keys are missing or failed but issues are present
                      setDailyVerse(issues[0].verse); 
                 }
             }, [issues, aiKeys, aiCallWithKeys, dailyVerse, allKeysFailed]);
@@ -763,13 +928,14 @@
                                         <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">{t.verseTitle}</h4>
                                         <p className="text-lg font-bold leading-relaxed">{dailyVerse.text}</p>
                                         <div className="text-right text-xs text-gray-500 mt-2 font-bold">— {dailyVerse.ref}</div>
-                                        {/* ✅ تم ربط الزر بالدالة الجديدة */}
-                                        <button onClick={()=>handleReflectionClick(dailyVerse.text)} className="mt-3 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 px-3 py-1 rounded-full font-bold">{reflecting ? "جاري..." : t.reflectBtn}</button>
+                                        <button onClick={()=>handleReflectionClick(dailyVerse.text)} disabled={reflecting} className="mt-3 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 px-3 py-1 rounded-full font-bold">{reflecting ? "جاري..." : t.reflectBtn}</button>
                                     </div>
                                 </div>
                                 {reflection && <div className="mt-4 mr-10 bg-yellow-50 dark:bg-gray-800 p-4 rounded-xl border-r-4 border-yellow-400 shadow-md animate-pop-in"><div className="flex justify-between items-center mb-2"><h5 className="font-bold text-xs text-yellow-600">{t.reflectTitle}</h5><button onClick={()=>{setReflection(""); localStorage.removeItem('bejouri_reflection_cache');}}>✕</button></div><p className="text-sm leading-relaxed whitespace-pre-wrap">{reflection}</p></div>}
                             </div>
                         )}
+                        
+                        {/* Riddles Leaderboard is REMOVED from the main flow */}
 
                         {issues.map(issue => {
                             const isOpen = issue.is_free || unlockedIssues.includes(issue.id) || unlockedIssues.includes(String(issue.id));
@@ -789,12 +955,19 @@
                         })}
                     </div>
 
-                    {/* Floating Friends Button */}
+                    {/* Floating Friends Button (Right) */}
                     <button onClick={() => setShowFriendsForm(true)} className="fixed bottom-4 right-4 z-40 bg-gradient-to-r from-pink-500 to-rose-500 text-white px-6 py-4 rounded-full font-black text-lg shadow-2xl hover:scale-110 transition transform flex items-center gap-2 border-4 border-white animate-bounce-slow">
                         <span>🤝</span> {t.joinFriends}
                     </button>
+                    
+                    {/* Floating Riddle Heroes Button (Left) - NEW */}
+                    <button onClick={() => setShowRiddlesHeroes(true)} className="fixed bottom-4 left-4 z-40 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-4 rounded-full font-black text-lg shadow-2xl hover:scale-110 transition transform flex items-center gap-2 border-4 border-white animate-bounce-slow">
+                        <span>🥇</span> {t.riddleHeroes}
+                    </button>
+
 
                     {showFriendsForm && <FriendsModal t={t} onClose={() => setShowFriendsForm(false)} setAlert={setAppAlert} />}
+                    {showRiddlesHeroes && <RiddleHeroesModal t={t} onClose={() => setShowRiddlesHeroes(false)} riddleUser={riddleUser} />}
                     
                     {showUnlock && <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"><div className="bg-white dark:bg-gray-900 w-full max-w-md p-6 rounded-3xl relative animate-pop-in shadow-2xl"><button onClick={()=>{setShowUnlock(false); if(window.stopScan) window.stopScan();}} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl">✕</button><UnlockView onUnlock={handleUnlock} t={t} error={unlockError} processing={verifying} /></div></div>}
                     
