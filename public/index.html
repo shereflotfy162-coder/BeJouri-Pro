@@ -65,6 +65,25 @@
             background-color: #1f2937;
             color: #ffffff;
         }
+        /* Style for floating buttons on small screens */
+        @media (max-width: 639px) { /* Tailwinde's sm breakpoint */
+            .floating-btn-mobile {
+                width: 60px !important; 
+                height: 60px !important;
+                padding: 0 !important;
+                border-radius: 50%;
+                justify-content: center;
+                align-items: center;
+            }
+            .floating-btn-mobile span:first-child {
+                /* Icon size adjustment */
+                font-size: 1.5rem !important; 
+            }
+            .floating-btn-mobile .button-text-sm-hidden {
+                 /* Hides the text on mobile */
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -96,7 +115,7 @@
                 reflectBtn: "✨ تأمل", reflectTitle: "تأمل في الآية",
                 riddleUserModalTitle: "بوابة الأبطال", riddleUserModalBody: "للتسجيل في لوحة الشرف، من فضلك أدخل اسمك ورقم هاتفك (مرة واحدة فقط).",
                 riddleLeaderboard: "لوحة شرف الفوازير",
-                riddleHeroes: "أبطال الفوازير 🥇" // New button title
+                riddleHeroes: "أبطال الفوازير 🥇" 
             },
             en: {
                 appTitle: "BeJouri", subTitle: "Church Heroes", loading: "Loading...",
@@ -280,7 +299,6 @@
                 if(!data.name || !data.phone) return setAlert("اكتب اسمك ورقمك لحفظ النتيجة!");
                 setLoading(true);
                 try {
-                    // تم إزالة حقل الموهبة من هنا
                     await supabase.from('contest_submissions').insert([{ 
                         issue_id: issueId, 
                         student_name: data.name, 
@@ -583,7 +601,7 @@
             const hasContest = issue.contest && issue.contest.length > 0;
             const hideMagazine = issue.hide_magazine === true; 
             
-            // ✅ Logic to set the initial tab
+            // Logic to set the initial tab: mag -> video -> contest -> activities
             let initialTab;
             if (!hideMagazine) {
                 initialTab = 'mag';
@@ -669,22 +687,23 @@
                 // 2. Calculate Rank (only if user is logged in)
                 if (riddleUser?.user_phone) {
                     const { count } = await supabase.from('riddles_scores')
-                        .select('id', { count: 'exact' })
-                        .order('score', { ascending: false });
+                        .select('id', { count: 'exact' }); // Get total count
                     
-                    const myRank = topLeaders.findIndex(l => l.user_phone === riddleUser.user_phone);
+                    const totalUsers = count || 0;
 
-                    if (myRank !== -1) {
-                        setUserRank({ rank: myRank + 1, total: count });
-                    } else if (count > 3) {
-                         // Fallback for calculating rank if outside top 3
-                         const { count: higherCount } = await supabase.from('riddles_scores')
-                            .select('id', { count: 'exact' })
-                            .gt('score', riddleUser.score);
-                        setUserRank({ rank: higherCount + 1, total: count });
-                    } else {
-                        setUserRank({ rank: count, total: count });
-                    }
+                    // Find user's actual rank
+                    const { count: higherCount } = await supabase.from('riddles_scores')
+                        .select('id', { count: 'exact' })
+                        .gt('score', riddleUser.score);
+                    
+                    // Rank is (number of people above you) + 1
+                    const calculatedRank = higherCount + 1;
+
+                    setUserRank({ 
+                        rank: calculatedRank, 
+                        score: riddleUser.score,
+                        totalUsers: totalUsers
+                    });
                 } else {
                     setUserRank(null);
                 }
@@ -719,11 +738,11 @@
                                 )}
                             </div>
                             
-                            {riddleUser && userRank && (
+                            {userRank && (
                                 <div className="bg-indigo-50 dark:bg-indigo-900 p-4 rounded-xl text-center border-2 border-indigo-400">
                                     <h3 className="font-black text-indigo-700 dark:text-indigo-300 mb-2">أنا البطل!</h3>
-                                    <p className="text-gray-700 dark:text-gray-300 font-bold">نقاطي: <span className="font-black text-xl text-green-600">{riddleUser.score}</span></p>
-                                    {userRank.rank && <p className="text-gray-700 dark:text-gray-300 font-bold">ترتيبي الحالي: <span className="font-black text-xl text-red-600">#{userRank.rank}</span></p>}
+                                    <p className="text-gray-700 dark:text-gray-300 font-bold">نقاطي: <span className="font-black text-xl text-green-600">{userRank.score}</span></p>
+                                    <p className="text-gray-700 dark:text-gray-300 font-bold">ترتيبي الحالي: <span className="font-black text-xl text-red-600">#{userRank.rank}</span></p>
                                 </div>
                             )}
                             {!riddleUser && (
@@ -758,7 +777,7 @@
             const [introData, setIntroData] = React.useState({}); 
             const [showIntro, setShowIntro] = React.useState(true); 
             const [showFriendsForm, setShowFriendsForm] = React.useState(false); 
-            const [showRiddlesHeroes, setShowRiddlesHeroes] = React.useState(false); // NEW STATE
+            const [showRiddlesHeroes, setShowRiddlesHeroes] = React.useState(false); 
             
             const [reflection, setReflection] = React.useState("");
             const [reflecting, setReflecting] = React.useState(false);
@@ -935,8 +954,6 @@
                             </div>
                         )}
                         
-                        {/* Riddles Leaderboard is REMOVED from the main flow */}
-
                         {issues.map(issue => {
                             const isOpen = issue.is_free || unlockedIssues.includes(issue.id) || unlockedIssues.includes(String(issue.id));
                             return (
@@ -955,14 +972,28 @@
                         })}
                     </div>
 
-                    {/* Floating Friends Button (Right) */}
-                    <button onClick={() => setShowFriendsForm(true)} className="fixed bottom-4 right-4 z-40 bg-gradient-to-r from-pink-500 to-rose-500 text-white px-6 py-4 rounded-full font-black text-lg shadow-2xl hover:scale-110 transition transform flex items-center gap-2 border-4 border-white animate-bounce-slow">
-                        <span>🤝</span> {t.joinFriends}
+                    {/* Floating Friends Button (Right) - Responsive Design */}
+                    <button onClick={() => setShowFriendsForm(true)} className="fixed bottom-4 right-4 z-40 bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-2xl hover:scale-110 transition transform flex items-center gap-2 border-4 border-white animate-bounce-slow 
+                        /* Desktop/Tablet Styles */ 
+                        px-6 py-4 rounded-full font-black text-lg
+                        /* Mobile Styles */ 
+                        floating-btn-mobile">
+                        {/* ✅ Icon for Friends (Child/Friend Emoji) */}
+                        <span className="text-2xl">🧒</span> 
+                        {/* ✅ Text for Desktop only */}
+                        <span className="button-text-sm-hidden font-black text-lg">{t.joinFriends}</span>
                     </button>
                     
-                    {/* Floating Riddle Heroes Button (Left) - NEW */}
-                    <button onClick={() => setShowRiddlesHeroes(true)} className="fixed bottom-4 left-4 z-40 bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-4 rounded-full font-black text-lg shadow-2xl hover:scale-110 transition transform flex items-center gap-2 border-4 border-white animate-bounce-slow">
-                        <span>🥇</span> {t.riddleHeroes}
+                    {/* Floating Riddle Heroes Button (Left) - Responsive Design */}
+                    <button onClick={() => setShowRiddlesHeroes(true)} className="fixed bottom-4 left-4 z-40 bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-2xl hover:scale-110 transition transform flex items-center gap-2 border-4 border-white animate-bounce-slow
+                        /* Desktop/Tablet Styles */
+                        px-6 py-4 rounded-full font-black text-lg
+                        /* Mobile Styles */ 
+                        floating-btn-mobile">
+                        {/* ✅ Icon for Heroes (Trophy/Cup Emoji) */}
+                        <span className="text-2xl">🏆</span> 
+                        {/* ✅ Text for Desktop only */}
+                        <span className="button-text-sm-hidden font-black text-lg">{t.riddleHeroes}</span>
                     </button>
 
 
