@@ -74,10 +74,7 @@
                 border-radius: 50%;
                 justify-content: center;
                 align-items: center;
-            }
-            .floating-btn-mobile span:first-child {
-                /* Icon size adjustment */
-                font-size: 1.5rem !important; 
+                /* Adjust font size for icon display */
             }
             .floating-btn-mobile .button-text-sm-hidden {
                  /* Hides the text on mobile */
@@ -115,7 +112,7 @@
                 reflectBtn: "✨ تأمل", reflectTitle: "تأمل في الآية",
                 riddleUserModalTitle: "بوابة الأبطال", riddleUserModalBody: "للتسجيل في لوحة الشرف، من فضلك أدخل اسمك ورقم هاتفك (مرة واحدة فقط).",
                 riddleLeaderboard: "لوحة شرف الفوازير",
-                riddleHeroes: "أبطال الفوازير 🥇" 
+                riddleHeroes: "أبطال الفوازير 🏆" 
             },
             en: {
                 appTitle: "BeJouri", subTitle: "Church Heroes", loading: "Loading...",
@@ -135,7 +132,7 @@
                 reflectBtn: "✨ Reflect", reflectTitle: "Verse Reflection",
                 riddleUserModalTitle: "Heroes Gate", riddleUserModalBody: "To join the leaderboard, please enter your name and phone number (only once).",
                 riddleLeaderboard: "Riddles Leaderboard",
-                riddleHeroes: "Riddle Heroes 🥇"
+                riddleHeroes: "Riddle Heroes 🏆"
             }
         };
 
@@ -377,8 +374,13 @@
                         setAlert("هذا الرقم غير مسجل. يرجى إدخال الاسم للتسجيل.", 'warning');
                     }
                 } catch (e) {
-                    console.error("Riddle Auth Error:", e);
-                    setAlert("خطأ في الاتصال بقاعدة البيانات.");
+                    if (e.code === '23505') {
+                        setAlert("هذا الرقم مسجل بالفعل. يرجى استخدام وضع الدخول (Login).");
+                        setMode('login');
+                    } else {
+                        console.error("Riddle Auth Error:", e);
+                        setAlert("خطأ في الاتصال بقاعدة البيانات.");
+                    }
                 } finally {
                     setLoading(false);
                 }
@@ -410,7 +412,27 @@
 
 
         function ActivitiesView({ t, setAlert, aiCall, riddleUser, setRiddleUser }) {
-            const [mode, setMode] = React.useState(riddleUser ? 'menu' : 'register'); 
+            // Check user status on component load/update
+            React.useEffect(() => {
+                if (!riddleUser || !riddleUser.user_phone) {
+                    setMode('register');
+                } else {
+                    const checkExistence = async () => {
+                         const { data } = await supabase.from('riddles_scores').select('id').eq('user_phone', riddleUser.user_phone).maybeSingle();
+                         if (!data) {
+                             localStorage.removeItem('bejouri_riddle_user');
+                             setRiddleUser(null);
+                             setMode('register');
+                             setAlert("تم حذف بياناتك من لوحة الشرف، يرجى التسجيل مجدداً.", 'warning');
+                         } else {
+                            setMode('menu');
+                         }
+                    };
+                    checkExistence();
+                }
+            }, [riddleUser, setRiddleUser]);
+
+            const [mode, setMode] = React.useState('loading'); // Use loading initially
             const [data, setData] = React.useState(null); 
             const [input, setInput] = React.useState(""); 
             const [feedback, setFeedback] = React.useState(""); 
@@ -480,7 +502,7 @@
 
             if(mode === 'register') return <RiddleUserModal t={t} onClose={()=>setMode('menu')} onUserSet={(user)=>{setRiddleUser(user); setMode('menu');}} setAlert={setAlert} />;
 
-            if(mode === 'menu') return <div className="h-full flex flex-col items-center justify-center p-6 gap-4"><button onClick={()=>{setMode('riddle'); generateRiddle();}} className="w-full max-w-xs p-6 bg-purple-500 rounded-2xl text-white font-black text-xl shadow-lg hover:bg-purple-600 transition transform hover:scale-105">{t.actRiddle}</button></div>;
+            if(mode === 'menu' || mode === 'loading') return <div className="h-full flex flex-col items-center justify-center p-6 gap-4"><button onClick={()=>{setMode('riddle'); generateRiddle();}} disabled={mode==='loading'} className="w-full max-w-xs p-6 bg-purple-500 rounded-2xl text-white font-black text-xl shadow-lg hover:bg-purple-600 transition transform hover:scale-105">{mode === 'loading' ? t.loading : t.actRiddle}</button></div>;
             
             if(mode === 'riddle') return (
                 <div className="h-full flex flex-col p-6 text-center overflow-y-auto bg-gray-50 dark:bg-gray-900 relative overflow-hidden">
@@ -601,7 +623,7 @@
             const hasContest = issue.contest && issue.contest.length > 0;
             const hideMagazine = issue.hide_magazine === true; 
             
-            // Logic to set the initial tab: mag -> video -> contest -> activities
+            // Logic to set the initial tab: mag -> video (Default) -> contest -> activities
             let initialTab;
             if (!hideMagazine) {
                 initialTab = 'mag';
@@ -612,8 +634,19 @@
             } else {
                 initialTab = 'activities';
             }
-
-            const [tab, setTab] = React.useState(initialTab);
+            
+            // Re-order the preference: If video exists, go to video next if mag is hidden.
+            let defaultTab;
+            if (issue.videos && issue.videos.length > 0) {
+                defaultTab = 'video';
+            } else if (!hideMagazine) {
+                defaultTab = 'mag';
+            } else if (hasContest) {
+                defaultTab = 'contest';
+            } else {
+                defaultTab = 'activities';
+            }
+            const [tab, setTab] = React.useState(defaultTab);
 
             return (
                 <div className="h-screen flex flex-col bg-white dark:bg-gray-900">
@@ -720,7 +753,7 @@
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-purple-900/90 backdrop-blur-md animate-fade-in">
                     <div className="bg-white dark:bg-gray-800 w-full max-w-sm p-8 rounded-3xl shadow-2xl relative animate-pop-in border-4 border-yellow-400">
                         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 text-xl font-bold">✕</button>
-                        <h2 className="text-2xl font-black text-yellow-700 dark:text-yellow-400 mb-6 text-center">🥇 {t.riddleHeroes}</h2>
+                        <h2 className="text-2xl font-black text-yellow-700 dark:text-yellow-400 mb-6 text-center">🏆 {t.riddleHeroes}</h2>
                         
                         <div className="space-y-4">
                             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl shadow-inner">
@@ -857,9 +890,16 @@
                     const { data: issuesData } = await supabase.from('issues').select('*').order('created_at', { ascending: false });
                     if (issuesData) setIssues(issuesData);
                     
+                    // ✅ التحقق من وجود المستخدم في قاعدة البيانات بعد التصفير
                     if (riddleUser?.user_phone) {
                         const { data: updatedUser } = await supabase.from('riddles_scores').select('*').eq('user_phone', riddleUser.user_phone).maybeSingle();
-                        if (updatedUser) setRiddleUser(updatedUser);
+                        if (updatedUser) {
+                            setRiddleUser(updatedUser);
+                        } else {
+                            // إذا تم حذفه من الداشبورد
+                            localStorage.removeItem('bejouri_riddle_user');
+                            setRiddleUser(null);
+                        }
                     }
                 };
                 init();
@@ -978,9 +1018,7 @@
                         px-6 py-4 rounded-full font-black text-lg
                         /* Mobile Styles */ 
                         floating-btn-mobile">
-                        {/* ✅ Icon for Friends (Child/Friend Emoji) */}
                         <span className="text-2xl">🧒</span> 
-                        {/* ✅ Text for Desktop only */}
                         <span className="button-text-sm-hidden font-black text-lg">{t.joinFriends}</span>
                     </button>
                     
@@ -990,9 +1028,7 @@
                         px-6 py-4 rounded-full font-black text-lg
                         /* Mobile Styles */ 
                         floating-btn-mobile">
-                        {/* ✅ Icon for Heroes (Trophy/Cup Emoji) */}
                         <span className="text-2xl">🏆</span> 
-                        {/* ✅ Text for Desktop only */}
                         <span className="button-text-sm-hidden font-black text-lg">{t.riddleHeroes}</span>
                     </button>
 
